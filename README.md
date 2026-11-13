@@ -1,0 +1,94 @@
+# Portfolio site
+
+An interactive, trippy-cartoon portfolio: a glowing orb with planets circling it, in an endless
+landscape of floating islands (brown mountains, green forests, blue rivers, deep blue sky) that you
+explore by flying the orb (hold the mouse or a finger down, arrow keys/WASD, or the wheel). Each
+planet opens one item (a project, About, or Contact). `BG.zoom` in `background.js` (0.6) sets how zoomed out everything is. The orb roams freely round the screen and the view only pans when it nears an edge; the SH. mark flies it
+home. No build step.
+
+Files: `index.html`, `styles.css`, `background.js`, `sun.js`, `hunt.js`, `flight.js`, `extras.js`, `pointer-effects.js`.
+
+## Fill in your content
+
+All the words live in one hidden list in `index.html`: `<ul class="planet-list">`. Each `<li>` is
+one planet, from the innermost orbit outward. Search for `[` to find every placeholder.
+
+- `data-tag` - the small label above the title (e.g. Pipelines, About).
+- `.planet-title` - the title, also shown when the planet is hovered.
+- `.planet-text` - a short description.
+- `.planet-tools` - tools or skills, shown as chips (optional).
+- `.planet-links` - links, shown as buttons (optional). Links starting with `http` open in a new tab.
+
+Add or remove `<li>` items to change the planets (up to 8; their sizes, colours and orbits are the
+`planets` list in `sun.js`). Put a `resume.pdf` next to `index.html`, or remove that link.
+
+The list is invisible on screen but read by screen readers and search engines, and Tab moves through
+it (each item highlights its planet; Enter opens it).
+
+Keep work projects general: describe the problem, your approach and the outcome, not internal system
+names or data.
+
+## How it works
+
+- `background.js` draws the background (settings in `BG`): an endless starry void, made from the
+  world position. Star streams wind through it - glowing tunnels with dark depths, stars streaming
+  along them - following evenly spaced levels of one smooth field, so they never cross and keep a
+  steady width. Gardens of glowing green crystals line their banks, and belts of brown asteroids
+  (with dust and pebbles) run along the spines between streams; each keeps a buffer from the
+  others, so nothing overlaps. Fine light rays drift over everything (`shimmer`). Shapes and
+  amounts: `riverSize`, `riverWidth`, `riverSpacing`, `riverFlow` (the streams), `beltSize`,
+  `beltLevel`, `asteroidSpacing`, `gardenSize`, `gardenShare`, `crystalSpacing`, `cloudShare`
+  (void curtains) and so on.
+  The world gets a new layout with each `?swirls=` number. On top: the outlined rings and streamers
+  and the breathing, melting warp, and the landscape flows and shimmers like the northern lights
+  (the `aurora...` settings). Without WebGL a still tie-dye picture shows instead.
+  - The page is only a window on the world: when the orb nears its edge, `flight.js` slides the
+    world back underneath (`setBackgroundShift` and friends) and scrolls to match, and only the
+    newly uncovered strip of landscape is drawn.
+  - Soft glowing rays stream out of the orb (the `ray...` settings). Expanding rings and the swirl
+    round the orb are switched off (`ringStrength: 0`, `vortexSpin: 0`); raise them to bring them back.
+  - The centre point starts in the middle of the screen; a click on empty space moves it.
+  - The ray directions get a new random layout on every visit. The layout number is printed in the
+    browser console; open the page with `?swirls=12345` to see a layout again, or set
+    `swirlSeed: 12345` in `BG` to keep one for good.
+- `sun.js` draws the centre point as a morphing orb with the planets orbiting it (settings in `SUN`).
+  Hover a planet for its title; click it for the full panel. The orb glides wherever you click.
+- `hunt.js` turns it into a game: every planet starts hidden somewhere in the world. A radar in the
+  corner points to the nearest one and pulses faster as you get close; flying close to a hidden planet
+  (or clicking it) catches it (it flies home into orbit and its panel opens). A "Contents" button (top left) lists the planets found so far, and clicking one opens its panel. "Show me everything" skips the hunt, and once all
+  are found it becomes "Hide them again". Progress is saved in the visitor's browser. Settings are in
+  `HUNT` (how far planets drift, how close a click must be, `gravityReach`, flight time, and so on).
+- `extras.js` adds hazards and power-ups (settings in `EXTRAS`): star streams carry the orb along, keep it
+  near their middle unless you're steering (`centring`, `wobble`), and make flying faster; black holes pull it in and fling it back out if they swallow it (never near the
+  start or a hidden planet); stardust specks fill the meter under the radar, and Space or the Boost
+  button spends some for a burst of speed. All of it pauses while a panel is open.
+- `flight.js` moves the orb instead of scrolling: hold to fly towards the pointer, a quick click
+  dashes there, keys and the wheel nudge it, and the view pans only when the orb nears an edge or
+  corner (`cameraEdge`; settings in `FLIGHT`).
+- `pointer-effects.js` draws the soft line that follows the cursor (settings in `TRAIL`). A click also
+  sends a gentle wave through the swirls (the `ripple...` settings in `BG`).
+
+## Preview locally
+
+```bash
+python -m http.server 8000
+```
+
+Then open http://localhost:8000.
+
+## Publish on GitHub Pages
+
+1. Create a public repo named `<your-username>.github.io` on GitHub.
+2. Push these files to its `main` branch:
+
+```bash
+git init
+git add .
+git commit -m "Portfolio site"
+git branch -M main
+git remote add origin https://github.com/<your-username>/<your-username>.github.io.git
+git push -u origin main
+```
+
+3. In the repo, go to **Settings → Pages** and set the source to **Deploy from a branch**, `main`, `/ (root)`.
+4. After a minute the site is live at `https://<your-username>.github.io`.

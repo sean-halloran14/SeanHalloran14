@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- minimum-scale stops phones zooming out to fit the big scrolling world. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+  <title>Sean Halloran | Data Engineer</title>
+  <meta name="description" content="Portfolio of data engineering work: pipelines, lakehouses and analytics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- The whole site is one interactive screen: a glowing orb with planets
+       circling it. Each planet opens one item from the list below (projects,
+       About, Contact). Colours are defined in styles.css :root. -->
+
+  <!-- The mark also brings the view back to the orb. -->
+  <a class="mark" href="#" aria-label="Sean Halloran, data engineer. Back to the centre">SH<span>.</span></a>
+
+  <!-- Always-visible shortcuts: the table of contents (hunt.js), the résumé,
+       email, and a plain one-page view of everything (plain-view.js).
+       Keep the Résumé and Email links in step with the About and Contact items. -->
+  <div class="top-bar">
+    <button class="top-link contents-button" type="button" aria-expanded="false" aria-controls="contents">Contents</button>
+    <a class="top-link" href="resume.pdf">Résumé</a>
+    <a class="top-link top-email" href="mailto:you@example.com">Email</a>
+    <button class="top-link plain-button" type="button">Just show me the work</button>
+  </div>
+  <nav class="contents" id="contents" hidden aria-label="Planets found so far">
+    <p class="contents-heading">Found so far</p>
+    <!-- Each found planet lights a star; find them all to finish the shape. -->
+    <canvas class="constellation" aria-hidden="true"></canvas>
+    <ul class="contents-list"></ul>
+    <p class="contents-note"></p>
+  </nav>
+  <!-- Points at the first hidden planet until it's caught (hunt.js). -->
+  <p class="coach" hidden aria-hidden="true">
+    <span class="hint-pointer">A hidden planet! Hold the mouse on it to fly there (or use the arrow keys).</span>
+    <span class="hint-touch">A hidden planet! Hold your finger on it to fly there.</span>
+  </p>
+
+  <div class="page">
+    <!-- Background: background.js paints these; styles.css drifts the base slowly. -->
+    <canvas class="page-bg page-bg-base" aria-hidden="true"></canvas>
+    <canvas class="page-bg page-bg-swirls" aria-hidden="true"></canvas>
+    <!-- The orb at the centre point, with its planets; drawn by sun.js. -->
+    <canvas class="sun-layer" aria-hidden="true"></canvas>
+
+    <main class="stage" data-bg="--brown-deep --forest-deep --navy --forest">
+      <h1 class="sr-only">Sean Halloran, data engineer</h1>
+      <!-- Shown only in the plain one-page view. -->
+      <header class="plain-intro">
+        <p class="plain-intro-tag">Sean Halloran &middot; Data engineer</p>
+        <p class="plain-intro-text">Everything from the planets, on one page.</p>
+      </header>
+
+      <!-- THE CONTENT. Each item is one planet, in order from the innermost
+           orbit outward. sun.js reads it to fill the planet's label and panel.
+           It is hidden from view but read by screen readers and search engines,
+           and Tab moves through it (each item highlights its planet).
+
+           Per item:
+             data-tag          small label above the title
+             .planet-title     the title (also the hover label)
+             .planet-text      a short description
+             .planet-tools     tools / skills shown as chips (optional)
+             .planet-links     links shown as buttons (optional)
+           Replace the [bracketed] text with your own. -->
+      <ul class="planet-list sr-only">
+        <li data-tag="Pipelines">
+          <a class="planet-title" href="projects/nightly-pipeline.html">One nightly pipeline for a company's sales data</a>
+          <p class="planet-text">A vending and food-service company's reporting ran on 46 separately scheduled pipelines, dataflows and notebooks that had grown one report at a time. I rebuilt it as a single object-oriented Python pipeline in Microsoft Fabric: each night it downloads 56 API reports, keeps the raw copies, and builds 58 cleaned and 15 business tables, checking and logging itself as it goes. It runs in about 13 minutes instead of roughly 6 hours of daily run time, fills in missed days on its own, and keeps every business rule in one documented place.</p>
+          <ul class="planet-tools"><li>Python</li><li>Polars</li><li>DuckDB</li><li>Delta Lake</li><li>Microsoft Fabric</li><li>Power BI</li></ul>
+          <div class="planet-links"><a href="projects/nightly-pipeline.html">Read the full story</a></div>
+        </li>
+        <li data-tag="Pipelines">
+          <a class="planet-title" href="projects/nightly-pipeline.html#moving-over">Migrating a live workspace without breaking reports</a>
+          <p class="planet-text">Moving a company's live reporting onto a new design without breaking anyone's reports. I rebuilt the work in a separate test copy, kept the business rules the original had established, and compared the new tables with the old ones value by value while both ran side by side. The approach is now written up as a repeatable pattern, and the company's other data sources (CRM, accounting, point of sale) are starting to move the same way.</p>
+          <ul class="planet-tools"><li>Python</li><li>DuckDB</li><li>SQL</li><li>Medallion architecture</li><li>Microsoft Fabric</li></ul>
+          <div class="planet-links"><a href="projects/nightly-pipeline.html#moving-over">Read how it moved</a></div>
+        </li>
+        <li data-tag="Analytics">
+          <a class="planet-title" href="#">[Project title: Operations dashboard]</a>
+          <p class="planet-text">[Who used it, what decisions it supported, and any measurable impact.]</p>
+          <ul class="planet-tools"><li>Power BI</li><li>DAX</li><li>Semantic models</li></ul>
+          <div class="planet-links"><a href="#">Read more</a></div>
+        </li>
+        <li data-tag="Analytics">
+          <a class="planet-title" href="projects/nightly-pipeline.html#looks-after-itself">A pipeline that reports on itself</a>
+          <p class="planet-text">Checking whether a night's data had loaded used to mean looking through 46 run histories. I built diagnostics into the pipeline: every run logs each report and table (rows loaded, freshness, and warnings such as a sudden drop in rows or an empty download) and marks the whole run failed if anything is missing, so problems are known the same morning. A Power BI report shows the log, and another flags mismatches in an operations team's spreadsheet so they can fix them at the source.</p>
+          <ul class="planet-tools"><li>Python</li><li>Polars</li><li>Delta Lake</li><li>Power BI</li><li>Observability</li></ul>
+          <div class="planet-links"><a href="projects/nightly-pipeline.html#looks-after-itself">See how it checks itself</a></div>
+        </li>
+        <li data-tag="Web">
+          <a class="planet-title" href="#">[Project title: Bike + transit route finder]</a>
+          <p class="planet-text">[A Django web app; describe what it does and what you learned building it.]</p>
+          <ul class="planet-tools"><li>Django</li><li>Python</li><li>JavaScript</li></ul>
+          <div class="planet-links"><a href="https://github.com/SeanHalloran14">View on GitHub</a></div>
+        </li>
+        <li data-tag="Documentation">
+          <a class="planet-title" href="projects/nightly-pipeline.html#documentation">Writing it down so others can use it</a>
+          <p class="planet-text">A data platform only helps if people can use it and change it safely. For the pipeline rebuild I wrote three documents: a plain-language overview for managers comparing the old and new setups, an 18-page analyst guide with recipes for querying the tables, building Power BI reports and adding features through a test copy, and a 50-page developer reference covering every business rule, table and class. Each rule lives in one documented place, so someone new can find it and see how it works.</p>
+          <ul class="planet-tools"><li>Technical writing</li><li>Python</li><li>SQL</li><li>Power BI</li></ul>
+          <div class="planet-links"><a href="projects/nightly-pipeline.html#documentation">Read about the docs</a></div>
+        </li>
+        <li data-tag="About">
+          <a class="planet-title" href="#">About me</a>
+          <p class="planet-text">[A short paragraph: your background, what kind of problems you enjoy, and what you're looking for next.]</p>
+          <ul class="planet-tools"><li>Python</li><li>SQL</li><li>DAX</li><li>Microsoft Fabric</li><li>Delta Lake</li><li>DuckDB</li><li>Polars</li><li>Power BI</li><li>Git</li><li>REST APIs</li><li>Django</li></ul>
+          <div class="planet-links"><a href="resume.pdf">Download résumé</a></div>
+        </li>
+        <li data-tag="Contact">
+          <a class="planet-title" href="#">Let's build something</a>
+          <p class="planet-text">[Open to roles / freelance / collaborations.]</p>
+          <div class="planet-links">
+            <a href="mailto:you@example.com">Email</a>
+            <a href="https://github.com/SeanHalloran14">GitHub</a>
+            <a href="https://www.linkedin.com/in/your-profile">LinkedIn</a>
+          </div>
+        </li>
+      </ul>
+    </main>
+  </div>
+
+  <p class="hint" aria-hidden="true">
+    <span class="hint-pointer">hold to fly the orb &middot; ride the star streams &middot; space to boost &middot; avoid black holes</span>
+    <span class="hint-touch">hold to fly &middot; ride the star streams &middot; avoid black holes</span>
+  </p>
+
+  <!-- Small label next to a hovered or focused planet (sun.js fills it in). -->
+  <div class="planet-label" hidden aria-hidden="true">
+    <span class="planet-label-tag"></span>
+    <span class="planet-label-title"></span>
+  </div>
+
+  <!-- Details panel for a clicked planet (sun.js fills it in). -->
+  <section class="planet-panel" hidden aria-labelledby="planet-panel-title">
+    <button class="planet-panel-close" type="button" aria-label="Close">&times;</button>
+    <span class="planet-panel-tag"></span>
+    <h2 class="planet-panel-title" id="planet-panel-title"></h2>
+    <p class="planet-panel-text"></p>
+    <ul class="planet-panel-tools"></ul>
+    <div class="planet-panel-links"></div>
+  </section>
+
+  <!-- The planet hunt (hunt.js): radar, counter and skip / replay button. -->
+  <aside class="radar" hidden aria-label="Planet radar">
+    <canvas class="radar-dial" aria-hidden="true"></canvas>
+    <span class="radar-count" aria-live="polite"></span>
+    <button class="radar-button" type="button"></button>
+    <div class="stardust" title="Stardust: collect it to boost">
+      <span class="stardust-bar" aria-hidden="true"><span class="stardust-fill"></span></span>
+      <button class="boost-button" type="button" disabled>Boost</button>
+    </div>
+  </aside>
+  <p class="hunt-toast" hidden role="status">You found every planet!</p>
+
+  <!-- Cursor trail and click ripples; drawn by pointer-effects.js. -->
+  <canvas class="pointer-effects" aria-hidden="true"></canvas>
+
+  <script src="background.js"></script>
+  <script src="sun.js"></script>
+  <script src="hunt.js"></script>
+  <script src="flight.js"></script>
+  <script src="extras.js"></script>
+  <script src="plain-view.js"></script>
+  <script src="pointer-effects.js"></script>
+</body>
+</html>

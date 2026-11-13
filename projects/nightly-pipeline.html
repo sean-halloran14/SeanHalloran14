@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One Nightly Pipeline | Sean Halloran</title>
+  <meta name="description" content="Rebuilding a sprawling reporting workspace into one self-checking nightly pipeline in Microsoft Fabric.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    /* The site's palette (see ../styles.css). */
+    :root {
+      --navy: #1c3a56;
+      --sky-deep: #2b5f8a;
+      --sky-light: #9cc6e4;
+      --forest: #2f5a3a;
+      --olive: #6e7d32;
+      --brown-deep: #2a1d14;
+      --tan: #dccbb2;
+      --sunset: #d9622b;
+      --sun-glow: #f6a55e;
+      --cream: #f5eee1;
+      --ink: #2e2118;
+      --ink-soft: #5a4838;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, sans-serif;
+      line-height: 1.6;
+      color: var(--cream);
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(43, 95, 138, 0.55), transparent 55%),
+        radial-gradient(ellipse at 90% 40%, rgba(47, 90, 58, 0.45), transparent 50%),
+        #0d1a26;
+      min-height: 100vh;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 16px 64px;
+    }
+    .back {
+      display: inline-block;
+      margin-bottom: 28px;
+      color: var(--sky-light);
+      font: 500 0.85rem "JetBrains Mono", monospace;
+      text-decoration: none;
+    }
+    .back:hover { color: var(--sun-glow); }
+    .tag {
+      margin: 0;
+      color: var(--sun-glow);
+      font: 500 0.8rem "JetBrains Mono", monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    h1, h2 {
+      font-family: "Space Grotesk", sans-serif;
+      line-height: 1.2;
+    }
+    h1 { margin: 8px 0 14px; font-size: clamp(1.9rem, 5vw, 2.7rem); }
+    h2 { margin: 40px 0 10px; font-size: 1.35rem; color: var(--sun-glow); }
+    .lead { font-size: 1.1rem; color: var(--tan); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 28px 0 8px;
+    }
+    .stat {
+      padding: 14px 16px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 14px;
+      background: rgba(245, 238, 225, 0.94);
+      color: var(--ink);
+      box-shadow: 4px 4px 0 var(--brown-deep);
+    }
+    .stat strong {
+      display: block;
+      font: 700 1.5rem "Space Grotesk", sans-serif;
+      color: var(--sunset);
+    }
+    .stat span { font-size: 0.88rem; color: var(--ink-soft); }
+    ul { padding-left: 1.2em; }
+    li { margin: 6px 0; }
+    li strong { color: var(--sky-light); }
+    .layers {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .layer {
+      padding: 12px 16px;
+      border-left: 4px solid var(--sky-deep);
+      border-radius: 8px;
+      background: rgba(28, 58, 86, 0.55);
+    }
+    .layer b { font-family: "Space Grotesk", sans-serif; }
+    .layer:nth-child(1) { border-color: #b7976f; }
+    .layer:nth-child(2) { border-color: var(--sky-light); }
+    .layer:nth-child(3) { border-color: var(--sun-glow); }
+    .tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      list-style: none;
+    }
+    .tools li {
+      margin: 0;
+      padding: 3px 12px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 999px;
+      background: var(--tan);
+      color: var(--ink);
+      font: 500 0.8rem "JetBrains Mono", monospace;
+    }
+    .note { color: var(--tan); font-size: 0.9rem; opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="../index.html">&larr; back to the planets</a>
+    <p class="tag">Pipelines &middot; Data engineering</p>
+    <h1>One nightly pipeline for a company's sales data</h1>
+    <p class="lead">A vending, micro-market and office-coffee company's reporting depended on dozens of separately scheduled jobs that had grown one report at a time. I rebuilt it as a single object-oriented Python pipeline in Microsoft Fabric that runs once a night, checks itself, and repairs its own gaps.</p>
+
+    <div class="stats">
+      <div class="stat"><strong>46 &rarr; 1</strong><span>scheduled jobs replaced by one nightly run</span></div>
+      <div class="stat"><strong>~6 h &rarr; 13 min</strong><span>daily run time on the shared capacity</span></div>
+      <div class="stat"><strong>150 &rarr; 7</strong><span>pipelines, dataflows and notebooks down to 7 core notebooks</span></div>
+      <div class="stat"><strong>5 &rarr; 1</strong><span>lakehouses and warehouses down to one lakehouse</span></div>
+    </div>
+
+    <h2>The problem</h2>
+    <p>The original workspace grew the natural way: each new report got its own small chain, a pipeline to download it, often a dataflow to clean it, a notebook to reshape it, and a separate "historical" copy to reload past months. Each piece solved a real need, but together they added up to 77 pipelines, about 30 dataflows and 43 notebooks.</p>
+    <ul>
+      <li><strong>Hard to check.</strong> Confirming that a night had loaded meant looking across 46 separate run histories.</li>
+      <li><strong>Expensive.</strong> Over two weeks the workspace ran 1,149 jobs, roughly 6 hours of run time a day on a capacity shared with every other team.</li>
+      <li><strong>Rules spread out.</strong> Logic such as which invoices count as a sale or how waste is valued lived across pipeline settings, dataflow steps and notebooks.</li>
+      <li><strong>Manual recovery.</strong> A longer outage had to be repaired by hand, and changes were tested next to the live jobs.</li>
+    </ul>
+
+    <h2>What I built</h2>
+    <p>One job works through every table in order each night, in three layers (a medallion architecture):</p>
+    <div class="layers">
+      <div class="layer"><b>Bronze: download.</b> Fetches 56 reports from the vendor's REST API and saves each response untouched as JSON, so any table can be rebuilt without asking the vendor again.</div>
+      <div class="layer"><b>Silver: clean.</b> Turns each report into a typed, tidy Delta table (58 of them) with consistent names, dates and exact decimal money, plus lineage columns saying which file and day each row came from.</div>
+      <div class="layer"><b>Gold: combine.</b> Builds 15 business tables, such as daily vending, market and office-coffee sales, waste, shrink and commission in one table, with every rule written once and documented.</div>
+    </div>
+    <p>The design is object-oriented: a workspace class, a class per API report and a class per table, each inheriting downloading, cleaning, history, checks and logging. Adding a new report means writing one short class and adding it to the nightly list.</p>
+
+    <h2 id="moving-over">Moving over safely</h2>
+    <p>The old workspace kept running while the new one was built, so nobody's reports broke along the way.</p>
+    <ul>
+      <li><strong>Same rules, new home.</strong> The business rules the original had established were kept, then gathered into one documented place instead of being spread across tools.</li>
+      <li><strong>Built in a test copy.</strong> Everything was developed against separate dev tables and files, so production was never touched by unfinished work.</li>
+      <li><strong>Checked value by value.</strong> Comparison notebooks matched the new tables against the original workspace, table by table and value by value, before any report switched over.</li>
+      <li><strong>History rebuilt from source.</strong> Every dated report back to January 2024 was backfilled from the vendor and saved untouched, so any table can be rebuilt at any time.</li>
+      <li><strong>A pattern to repeat.</strong> The design is written up so the company's other data sources can move the same way; the CRM data is already being rebuilt along these lines.</li>
+    </ul>
+
+    <h2 id="looks-after-itself">How it looks after itself</h2>
+    <ul>
+      <li><strong>Reports on itself.</strong> Every run logs each report and table: what loaded, row counts, freshness, and warnings such as a sudden drop in rows. A Power BI diagnostics report shows it, and if anything fails the whole run is marked failed so it can't be missed.</li>
+      <li><strong>Fills its own gaps.</strong> Each night it looks for any missing day or month back to January 2024 and fetches up to 14 of them, so a missed night is fixed by the next run.</li>
+      <li><strong>Waits for complete inputs.</strong> If a download fails, the tables that depend on it keep yesterday's data instead of being rebuilt from partial inputs.</li>
+      <li><strong>Test copy first.</strong> Every change runs first against separate dev tables, is compared value by value with the original workspace and production, and only then is promoted.</li>
+      <li><strong>Works with the people who own the data.</strong> A supplier order calendar the operations team keeps in Excel is read every night and checked against the source system; mismatches land in a report for them to fix.</li>
+    </ul>
+
+    <h2>Results</h2>
+    <ul>
+      <li>Every nightly run has succeeded since go-live, finishing in about 13 minutes.</li>
+      <li>The new tables were checked value by value against the original before reports switched over.</li>
+      <li>Retiring the old schedules frees up to about 6 hours of daily run time on the capacity the company pays for.</li>
+      <li>I wrote a 50-page developer reference and an 18-page analyst guide, so others can query the tables, build reports and add features safely.</li>
+      <li>The same pattern is now being applied to the company's other data sources.</li>
+    </ul>
+
+    <h2 id="documentation">Documentation</h2>
+    <p>I wrote the project up for three audiences, so each can get what they need without reading code:</p>
+    <ul>
+      <li><strong>Managers:</strong> a plain-language overview of how the new setup builds on the original, with the two side by side and what it means for the business.</li>
+      <li><strong>Analysts:</strong> an 18-page guide with ground rules, recipes (top accounts, waste rates, "did last night's run load?"), how to build Power BI reports on the tables, and how to add a table, column or report safely through the test copy.</li>
+      <li><strong>Developers:</strong> a 50-page reference covering every business rule, the nightly run step by step, and every class and method, plus known quirks and open questions.</li>
+    </ul>
+
+    <h2>Tools</h2>
+    <ul class="tools">
+      <li>Python</li><li>Polars</li><li>DuckDB SQL</li><li>Delta Lake (delta-rs)</li><li>Microsoft Fabric</li><li>Power BI</li><li>REST APIs</li><li>Object-oriented design</li><li>Medallion architecture</li>
+    </ul>
+
+    <p class="note">Company and system names are left out; figures are from the project's own documentation.</p>
+  </main>
+</body>
+</html>
