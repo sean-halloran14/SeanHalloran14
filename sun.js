@@ -2,11 +2,12 @@
 // The orb and its planets
 // =============================================================================
 // The background's centre point (background.js) is drawn as a glowing
-// cartoon of me: a big ink-outlined head with curly hair and a wide grin, on
-// small shoulders in a blue tee with backpack straps, bobbing gently and
-// blinking now and then, with a warm glow and wavy aura rings round it (it's
-// still called the orb in the code). The rays streaming from it come from
-// background.js.
+// cartoon of me, full body: a big ink-outlined head with curly hair,
+// sunglasses and a wide grin, a green flannel, brown trousers and green
+// sandals, with a warm glow and wavy aura rings round it (it's still called
+// the orb in the code). It strikes a pose for the way it's flying: hovering
+// and waving, superhero-style sideways, arms up going up, flailing coming
+// down. The rays streaming from it come from background.js.
 //
 // Planets circle it, each drawn as an ink-outlined icon for what it holds
 // (data-icon on its item: a database for the pipeline, a migration, a
@@ -31,7 +32,7 @@
 // =============================================================================
 
 const SUN = {
-  coreRadius: 72,          // size of the cartoon (its head is about this wide), px
+  coreRadius: 58,          // size of the cartoon (its head is about this wide), px
   outline: "--brown-deep", // outline colour
   outlineWidth: 3,         // px
   // The cartoon of me (the orb). Colours from a photo, warmed a little to
@@ -43,15 +44,27 @@ const SUN = {
     stubble: "rgba(95, 62, 45, 0.2)",
     hair: "#5a3923",
     hairLight: "#8f5d38",
-    eyes: "#3a2a20",
+    lens: "#1b1d2b",
+    lensShine: "rgba(255, 196, 120, 0.75)",
     mouth: "#7a1f2b",
     teeth: "#fff8ee",
-    shirt: "#5e7ca6",
-    shirtShade: "#47628c",
-    strap: "#23262f",
-    buckle: "#9aa3ad",
-    bob: 2,                // how far it bobs, in the cartoon's own units
-    blinkEvery: 4.3,       // seconds between blinks
+    flannel: "#3f7d4b",    // green flannel shirt
+    flannelDark: "#24502f",
+    flannelLine: "rgba(170, 214, 150, 0.6)",
+    pants: "#7a5232",      // brown trousers
+    pantsShade: "#5a3a22",
+    strap: "#3f9a52",      // green sandal straps
+    sole: "#2b2420",
+    stick: "#a0703f",      // hiking stick
+    bob: 2,                // how far it bobs when still, in the cartoon's own units
+    // Poses (see AVATAR_POSES): px per second of travel.
+    moveFrom: 40,          // slower than this it's still
+    moveFull: 260,         // faster than this it's fully in a flying pose
+    linesFrom: 500,        // speed lines start here
+    turnFrom: 60,          // it turns round once going sideways faster than this
+    maxSpeed: 3000,        // jumps faster than this are layout changes, not flight
+    motionEase: 8,         // how quickly its sense of speed catches up (per s)
+    turnEase: 10,          // how quickly it turns round (per s)
   },
   glowRadius: 4.5,         // warm halo size, as a multiple of coreRadius
   glowStrength: 0.26,      // halo opacity (0-1)
@@ -111,6 +124,12 @@ const sunState = {
   toX: 0, toY: 0,          // where it is heading
   glideStart: -1000,
   hasPosition: false,
+  motionX: null,           // where it was last frame, for measuring its speed
+  motionY: null,
+  motionTime: 0,
+  vx: 0,                   // smoothed speed, page px per second
+  vy: 0,
+  facing: 1,               // which way the cartoon faces: 1 right, -1 left
   scale: 1,                // shrinks everything to fit the screen
   boxSize: 0,              // canvas size, px
   planetCount: 0,
@@ -287,6 +306,10 @@ function setSunShift(dx, dy) {
   sunState.fromY -= dy;
   sunState.toX -= dx;
   sunState.toY -= dy;
+  if (sunState.motionX !== null) {
+    sunState.motionX -= dx;
+    sunState.motionY -= dy;
+  }
   const half = sunState.boxSize / 2;
   sunCanvas.style.transform = "translate(" + (sunState.x - half) + "px, " + (sunState.y - half) + "px)";
 }
@@ -379,86 +402,353 @@ function setRoundedBox(x, y, width, height, radius) {
 }
 
 // ---------- The orb: a cartoon of me ----------
-// Drawn in its own units: the head is about 70 across, a little above the
-// middle, with the shoulders below.
+// Drawn in its own units (coreRadius / 40 px each), full body, with the
+// origin at the belly: a big head with curly hair and sunglasses, a green
+// flannel, brown trousers and green sandals. Its pose follows how it's
+// moving (setAvatarMotion measures that from frame to frame, whatever moved
+// it: flying, keys, currents, a boost or a black hole):
+//   still     - hovering and waving, legs dangling
+//   sideways  - leaning into the flight like a superhero, fist first
+//   up        - both arms up, legs together, kicking
+//   down      - falling: arms flailing, knees tucked, mouth open
+// The poses blend into each other, it turns to face the way it's going, its
+// hair blows in the wind, and speed lines trail behind it when it's fast.
 
-function setAvatarBody() {
+// Each pose: lean (radians, towards the way it faces); arm and leg angles
+// (0 = straight down, positive = towards the way it faces) and the extra bend
+// at the elbow or knee; how open the mouth is (0-1); and how far the hair
+// blows (positive = towards the feet).
+const AVATAR_POSES = {
+  still: {
+    lean: 0, armFront: 2.5, elbowFront: 0.3, armBack: -0.35, elbowBack: 0.9,
+    legFront: 0.14, kneeFront: -0.2, legBack: -0.14, kneeBack: 0.2, mouth: 0, wind: 0,
+  },
+  sideways: {
+    lean: 1.1, armFront: 2.2, elbowFront: 0.15, armBack: -0.15, elbowBack: 0.1,
+    legFront: 0.06, kneeFront: 0, legBack: -0.06, kneeBack: 0, mouth: 0.15, wind: 3,
+  },
+  up: {
+    lean: 0, armFront: 2.85, elbowFront: 0.1, armBack: -2.85, elbowBack: -0.1,
+    legFront: 0.05, kneeFront: 0, legBack: -0.05, kneeBack: 0, mouth: 0.2, wind: 3,
+  },
+  down: {
+    lean: 0, armFront: 2.3, elbowFront: 0.6, armBack: -2.3, elbowBack: -0.6,
+    legFront: 0.75, kneeFront: -1.9, legBack: -0.75, kneeBack: 1.9, mouth: 1, wind: -4,
+  },
+};
+
+function getSmoothStep(from, to, value) {
+  const t = Math.max(0, Math.min(1, (value - from) / (to - from)));
+  return t * t * (3 - 2 * t);
+}
+
+function setAvatarMotion(seconds) {
+  // How fast and which way the cartoon is moving (page px per second),
+  // smoothed, and which way it faces (eases between 1 = right and -1 = left).
   const look = SUN.avatar;
-  // Shoulders in a blue tee.
+  if (sunState.motionX === null) {
+    sunState.motionX = sunState.x;
+    sunState.motionY = sunState.y;
+    sunState.motionTime = seconds;
+    return;
+  }
+  const step = Math.min(0.1, seconds - sunState.motionTime);
+  if (step <= 0) {
+    return;
+  }
+  let rawX = (sunState.x - sunState.motionX) / step;
+  let rawY = (sunState.y - sunState.motionY) / step;
+  const rawSpeed = Math.hypot(rawX, rawY);
+  if (rawSpeed > look.maxSpeed) {
+    // A layout jump, not a flight.
+    rawX = rawX / rawSpeed * look.maxSpeed;
+    rawY = rawY / rawSpeed * look.maxSpeed;
+  }
+  const ease = 1 - Math.exp(-look.motionEase * step);
+  sunState.vx += (rawX - sunState.vx) * ease;
+  sunState.vy += (rawY - sunState.vy) * ease;
+  if (Math.abs(sunState.vx) > look.turnFrom) {
+    const target = Math.sign(sunState.vx);
+    sunState.facing += (target - sunState.facing) * (1 - Math.exp(-look.turnEase * step));
+  }
+  sunState.motionX = sunState.x;
+  sunState.motionY = sunState.y;
+  sunState.motionTime = seconds;
+}
+
+function getPoseWeights() {
+  // How much of each pose to use: still when slow, otherwise shared between
+  // sideways, up and down by the direction of travel.
+  const look = SUN.avatar;
+  const speed = Math.hypot(sunState.vx, sunState.vy);
+  let moving = 0;
+  if (!sunMotion.matches) {
+    moving = getSmoothStep(look.moveFrom, look.moveFull, speed);
+  }
+  const across = Math.abs(sunState.vx);
+  const rising = Math.max(0, -sunState.vy);
+  const falling = Math.max(0, sunState.vy);
+  let total = across * across + rising * rising + falling * falling;
+  if (total === 0) {
+    total = 1;
+  }
+  return {
+    still: 1 - moving,
+    sideways: moving * across * across / total,
+    up: moving * rising * rising / total,
+    down: moving * falling * falling / total,
+  };
+}
+
+function getAvatarPose(seconds) {
+  // The blended pose for this moment, with each pose's own wiggle (a wave,
+  // fluttering legs, kicks, flailing arms) mixed in by its weight.
+  const weights = getPoseWeights();
+  const pose = {};
+  for (const key of Object.keys(AVATAR_POSES.still)) {
+    let value = 0;
+    for (const name of Object.keys(weights)) {
+      value += AVATAR_POSES[name][key] * weights[name];
+    }
+    pose[key] = value;
+  }
+  let wiggle = 1;
+  if (sunMotion.matches) {
+    wiggle = 0;
+  }
+  pose.elbowFront += weights.still * 0.45 * Math.sin(seconds * 7) * wiggle;
+  pose.kneeFront += weights.still * 0.15 * Math.sin(seconds * 2) * wiggle;
+  pose.kneeBack += weights.still * 0.15 * Math.sin(seconds * 2 + 1.5) * wiggle;
+  pose.kneeFront += weights.sideways * 0.3 * Math.sin(seconds * 11) * wiggle;
+  pose.kneeBack -= weights.sideways * 0.3 * Math.sin(seconds * 11) * wiggle;
+  pose.kneeFront += weights.up * 0.35 * Math.sin(seconds * 9) * wiggle;
+  pose.kneeBack -= weights.up * 0.35 * Math.sin(seconds * 9) * wiggle;
+  pose.armFront += weights.down * 0.4 * Math.sin(seconds * 11) * wiggle;
+  pose.armBack -= weights.down * 0.4 * Math.sin(seconds * 11 + 1) * wiggle;
+  pose.weights = weights;
+  return pose;
+}
+
+function getJoint(x, y, angle, length) {
+  // The far end of a limb segment (angle 0 = straight down).
+  return { x: x + Math.sin(angle) * length, y: y + Math.cos(angle) * length };
+}
+
+function setLimbStroke(points, width, colour) {
+  // A limb: an ink stroke through its joints, then its colour on top.
   drawContext.beginPath();
-  drawContext.moveTo(-13, 27);
-  drawContext.quadraticCurveTo(-40, 31, -46, 58);
-  drawContext.quadraticCurveTo(0, 74, 46, 58);
-  drawContext.quadraticCurveTo(40, 31, 13, 27);
+  drawContext.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    drawContext.lineTo(points[i].x, points[i].y);
+  }
+  drawContext.lineJoin = "round";
+  drawContext.lineCap = "round";
+  drawContext.lineWidth = width + 3.6;
+  drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+  drawContext.stroke();
+  drawContext.lineWidth = width;
+  drawContext.strokeStyle = colour;
+  drawContext.stroke();
+}
+
+function setBandAcross(from, to, share, width, colour) {
+  // A short band across a limb segment, part way along it (flannel checks,
+  // cuffs).
+  const x = from.x + (to.x - from.x) * share;
+  const y = from.y + (to.y - from.y) * share;
+  const length = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+  const acrossX = -(to.y - from.y) / length * width / 2;
+  const acrossY = (to.x - from.x) / length * width / 2;
+  drawContext.beginPath();
+  drawContext.moveTo(x - acrossX, y - acrossY);
+  drawContext.lineTo(x + acrossX, y + acrossY);
+  drawContext.lineWidth = 2.6;
+  drawContext.lineCap = "butt";
+  drawContext.strokeStyle = colour;
+  drawContext.stroke();
+}
+
+function setAvatarArm(x, y, angle, bend) {
+  // A flannel sleeve with dark checks and a cuff, and a hand. Returns the hand.
+  const look = SUN.avatar;
+  const shoulder = { x: x, y: y };
+  const elbow = getJoint(x, y, angle, 15);
+  const hand = getJoint(elbow.x, elbow.y, angle + bend, 14);
+  setLimbStroke([shoulder, elbow, hand], 9.5, look.flannel);
+  setBandAcross(shoulder, elbow, 0.45, 9.5, look.flannelDark);
+  setBandAcross(elbow, hand, 0.35, 9.5, look.flannelDark);
+  setBandAcross(elbow, hand, 0.82, 9.5, look.flannelDark);
+  setFilledEllipse(hand.x, hand.y, 4.6, 4.6, look.skin, 2);
+  return hand;
+}
+
+function setAvatarSandal(x, y, angle) {
+  // A foot in a green strappy sandal, square to the leg: dark sole, bare
+  // foot, crossed straps and a toe loop.
+  const look = SUN.avatar;
+  drawContext.save();
+  drawContext.translate(x, y);
+  drawContext.rotate(-angle);
+  setFilledEllipse(1.5, 4.6, 7.6, 3.6, look.sole, 1.8);
+  setFilledEllipse(1.5, 2.6, 6.4, 3.2, look.skin, 1.5);
+  drawContext.beginPath();
+  drawContext.moveTo(-4.5, 0.6);
+  drawContext.lineTo(4.5, 4.4);
+  drawContext.moveTo(-4.5, 4.4);
+  drawContext.lineTo(2, 0.8);
+  drawContext.lineCap = "round";
+  drawContext.lineWidth = 3.8;
+  drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+  drawContext.stroke();
+  drawContext.lineWidth = 2.2;
+  drawContext.strokeStyle = look.strap;
+  drawContext.stroke();
+  drawContext.beginPath();
+  drawContext.arc(6, 2.6, 1.6, 0, Math.PI * 2);
+  drawContext.lineWidth = 1.5;
+  drawContext.stroke();
+  drawContext.restore();
+}
+
+function setAvatarLeg(x, y, angle, bend) {
+  // A brown trouser leg with a darker hem, then the sandal.
+  const look = SUN.avatar;
+  const hip = { x: x, y: y };
+  const knee = getJoint(x, y, angle, 19);
+  const ankle = getJoint(knee.x, knee.y, angle + bend, 18);
+  setLimbStroke([hip, knee, ankle], 11, look.pants);
+  setBandAcross(knee, ankle, 0.88, 11, look.pantsShade);
+  setAvatarSandal(ankle.x, ankle.y, angle + bend);
+}
+
+function setTorsoPath() {
+  drawContext.beginPath();
+  drawContext.moveTo(-21, -2);
+  drawContext.quadraticCurveTo(-20, -9, -8, -9);
+  drawContext.lineTo(8, -9);
+  drawContext.quadraticCurveTo(20, -9, 21, -2);
+  drawContext.lineTo(18, 34);
+  drawContext.quadraticCurveTo(0, 38, -18, 34);
   drawContext.closePath();
-  drawContext.fillStyle = look.shirt;
+}
+
+function setAvatarTorso() {
+  // Trousers at the hips, then an untucked green flannel over them: dark
+  // checks both ways with fine light lines, an open collar, buttons and a
+  // chest pocket.
+  const look = SUN.avatar;
+  setRoundedBox(-17, 26, 34, 14, 4);
+  drawContext.fillStyle = look.pants;
   drawContext.fill();
-  setInk(3);
-  // Shade down the far side.
+  setInk(2.2);
+  setRoundedBox(-7, -16, 14, 13, 3);
+  drawContext.fillStyle = look.skinShade;
+  drawContext.fill();
+  setInk(2);
+
+  setTorsoPath();
+  drawContext.fillStyle = look.flannel;
+  drawContext.fill();
   drawContext.save();
   drawContext.clip();
-  drawContext.beginPath();
-  drawContext.ellipse(34, 52, 16, 26, -0.3, 0, Math.PI * 2);
-  drawContext.fillStyle = look.shirtShade;
-  drawContext.fill();
+  drawContext.fillStyle = look.flannelDark;
+  for (let x = -24; x < 26; x += 12) {
+    drawContext.fillRect(x, -12, 5, 52);
+  }
+  for (let y = -10; y < 40; y += 12) {
+    drawContext.fillRect(-24, y, 50, 5);
+  }
+  drawContext.strokeStyle = look.flannelLine;
+  drawContext.lineWidth = 0.9;
+  for (let x = -16; x < 26; x += 12) {
+    drawContext.beginPath();
+    drawContext.moveTo(x, -12);
+    drawContext.lineTo(x, 40);
+    drawContext.stroke();
+  }
   drawContext.restore();
-  // Neck and collar.
+  setTorsoPath();
+  setInk(2.6);
+
+  // Open collar: a V of skin with the collar points either side.
   drawContext.beginPath();
-  drawContext.moveTo(-9, 16);
-  drawContext.lineTo(-10, 30);
-  drawContext.quadraticCurveTo(0, 36, 10, 30);
-  drawContext.lineTo(9, 16);
+  drawContext.moveTo(-8, -9);
+  drawContext.lineTo(0, 3);
+  drawContext.lineTo(8, -9);
   drawContext.closePath();
   drawContext.fillStyle = look.skinShade;
   drawContext.fill();
-  setInk(2.5);
-  drawContext.beginPath();
-  drawContext.moveTo(-12, 29);
-  drawContext.quadraticCurveTo(0, 38, 12, 29);
-  drawContext.strokeStyle = look.shirtShade;
-  drawContext.lineWidth = 3.5;
-  drawContext.stroke();
-  // Backpack straps with buckles.
   for (const side of [-1, 1]) {
     drawContext.beginPath();
-    drawContext.moveTo(side * 21, 30);
-    drawContext.quadraticCurveTo(side * 31, 44, side * 27, 66);
-    drawContext.lineWidth = 10;
-    drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
-    drawContext.stroke();
-    drawContext.lineWidth = 7;
-    drawContext.strokeStyle = look.strap;
-    drawContext.stroke();
-    setRoundedBox(side * 29 - 4.5, 44, 9, 6, 1.5);
-    drawContext.fillStyle = look.buckle;
+    drawContext.moveTo(side * 8, -10);
+    drawContext.lineTo(side * 1.5, 1);
+    drawContext.lineTo(side * 12, -3);
+    drawContext.closePath();
+    drawContext.fillStyle = look.flannelDark;
     drawContext.fill();
-    setInk(1.5);
+    setInk(1.6);
   }
+  // Button line, buttons and a chest pocket.
+  drawContext.beginPath();
+  drawContext.moveTo(0, 3);
+  drawContext.lineTo(0, 35);
+  setInk(1.2);
+  for (const y of [10, 18, 26]) {
+    setFilledEllipse(1.8, y, 1.3, 1.3, look.teeth, 0.8);
+  }
+  setRoundedBox(-16, 3, 9, 8, 1.5);
+  setInk(1.2);
 }
 
-function setHairCurls(curls, seconds, inkWidth) {
+function setAvatarStick(hand, amount) {
+  // The hiking stick, held while hovering (it fades away in flight).
+  if (amount < 0.05) {
+    return;
+  }
+  drawContext.save();
+  drawContext.globalAlpha = amount;
+  drawContext.beginPath();
+  drawContext.moveTo(hand.x + 1, hand.y - 16);
+  drawContext.lineTo(hand.x - 1, hand.y + 50);
+  drawContext.lineCap = "round";
+  drawContext.lineWidth = 6.4;
+  drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+  drawContext.stroke();
+  drawContext.lineWidth = 3.6;
+  drawContext.strokeStyle = SUN.avatar.stick;
+  drawContext.stroke();
+  drawContext.restore();
+}
+
+function setHairCurls(curls, seconds, inkWidth, wind) {
   // A mop of curls: every curl in ink first (a little bigger), then all of
   // them in colour, so the outline only shows round the outside. Each curl
-  // bounces a little and gets a highlight swirl.
+  // bounces a little, the wind pushes them (towards the feet when positive),
+  // and each gets a highlight swirl.
   const look = SUN.avatar;
+  const placed = [];
+  for (let i = 0; i < curls.length; i++) {
+    const curl = curls[i];
+    const bounce = Math.sin(seconds * 2.6 + i * 1.3) * 0.5;
+    const push = wind * (0.6 + 0.4 * Math.sin(seconds * 8 + i));
+    placed.push([curl[0], curl[1] + push, curl[2] + bounce]);
+  }
   for (let pass = 0; pass < 2; pass++) {
-    for (let i = 0; i < curls.length; i++) {
-      const curl = curls[i];
-      const bounce = Math.sin(seconds * 2.6 + i * 1.3) * 0.5;
+    for (const curl of placed) {
       drawContext.beginPath();
       if (pass === 0) {
-        drawContext.arc(curl[0], curl[1], curl[2] + bounce + inkWidth, 0, Math.PI * 2);
+        drawContext.arc(curl[0], curl[1], curl[2] + inkWidth, 0, Math.PI * 2);
         drawContext.fillStyle = getSunColour(SUN.outline, 0.95);
       } else {
-        drawContext.arc(curl[0], curl[1], curl[2] + bounce, 0, Math.PI * 2);
+        drawContext.arc(curl[0], curl[1], curl[2], 0, Math.PI * 2);
         drawContext.fillStyle = look.hair;
       }
       drawContext.fill();
     }
   }
   drawContext.lineCap = "round";
-  for (let i = 0; i < curls.length; i++) {
-    const curl = curls[i];
+  for (let i = 0; i < placed.length; i++) {
+    const curl = placed[i];
     const start = i * 1.9;
     drawContext.beginPath();
     drawContext.arc(curl[0], curl[1], curl[2] * 0.55, start, start + 3.6);
@@ -473,7 +763,17 @@ function setHairCurls(curls, seconds, inkWidth) {
   }
 }
 
-function setAvatarFace(seconds) {
+function setMouthPath(open) {
+  // A wide grin that turns into a round "whoa" as it opens.
+  const half = 15 - 6 * open;
+  drawContext.beginPath();
+  drawContext.moveTo(-half, 13);
+  drawContext.quadraticCurveTo(0, 17 - 9 * open, half, 13);
+  drawContext.quadraticCurveTo(0, 33 + 2 * open, -half, 13);
+  drawContext.closePath();
+}
+
+function setAvatarFace(seconds, pose) {
   const look = SUN.avatar;
   // Ears, then the hair behind the head, then the face.
   setFilledEllipse(-33, 0, 6, 9, look.skin, 2.5);
@@ -481,7 +781,7 @@ function setAvatarFace(seconds) {
   setHairCurls([
     [-30, -16, 13], [-20, -31, 15], [-2, -37, 17], [17, -33, 15], [31, -19, 13],
     [-36, -4, 8], [36, -5, 8],
-  ], seconds, 2.8);
+  ], seconds, 2.8, pose.wind);
   drawContext.beginPath();
   drawContext.ellipse(0, 0, 31, 36, 0, 0, Math.PI * 2);
   drawContext.fillStyle = look.skin;
@@ -494,97 +794,125 @@ function setAvatarFace(seconds) {
   drawContext.clip();
   setFilledEllipse(0, 30, 27, 17, look.stubble, 0);
   drawContext.restore();
-  setFilledEllipse(-19, 9, 6, 3.5, look.blush, 0);
-  setFilledEllipse(19, 9, 6, 3.5, look.blush, 0);
+  setFilledEllipse(-20, 8, 6, 3.5, look.blush, 0);
+  setFilledEllipse(20, 8, 6, 3.5, look.blush, 0);
 
-  // Eyebrows.
+  // Eyebrows, raised over the shades.
   drawContext.lineCap = "round";
   for (const side of [-1, 1]) {
     drawContext.beginPath();
-    drawContext.moveTo(side * 19, -12);
-    drawContext.quadraticCurveTo(side * 12, -17, side * 5, -13);
+    drawContext.moveTo(side * 20, -15);
+    drawContext.quadraticCurveTo(side * 13, -20 - pose.mouth * 2, side * 5, -16);
     drawContext.lineWidth = 3.2;
     drawContext.strokeStyle = look.hair;
     drawContext.stroke();
   }
-  // Smiling eyes that blink now and then.
-  const blinking = (seconds % look.blinkEvery) < 0.14;
+  // Sunglasses: two dark lenses with a warm shine, on an ink frame.
+  drawContext.beginPath();
+  drawContext.moveTo(-21, -7);
+  drawContext.lineTo(-32, -4);
+  drawContext.moveTo(21, -7);
+  drawContext.lineTo(32, -4);
+  drawContext.moveTo(-4, -6);
+  drawContext.quadraticCurveTo(0, -8.5, 4, -6);
+  setInk(2.4);
   for (const side of [-1, 1]) {
-    const x = side * 12;
-    if (blinking) {
-      drawContext.beginPath();
-      drawContext.moveTo(x - 6, -4);
-      drawContext.quadraticCurveTo(x, -1, x + 6, -4);
-      setInk(2);
-    } else {
-      setFilledEllipse(x, -4, 6.5, 4.6, look.teeth, 1.8);
-      setFilledEllipse(x + 0.6, -3.6, 3.1, 3.3, look.eyes, 0);
-      setFilledEllipse(x + 1.7, -5, 1.1, 1.1, look.teeth, 0);
-    }
-    // Smile creases under the eyes.
+    const left = side * 12.5 - 8.5;
+    setRoundedBox(left, -11, 17, 12, 4.5);
+    drawContext.fillStyle = look.lens;
+    drawContext.fill();
+    setInk(2.4);
     drawContext.beginPath();
-    drawContext.moveTo(x - 5, 2);
-    drawContext.quadraticCurveTo(x, 4.5, x + 5, 2);
-    drawContext.lineWidth = 1.2;
-    drawContext.strokeStyle = getSunColour(SUN.outline, 0.45);
+    drawContext.moveTo(left + 4, -8.5);
+    drawContext.lineTo(left + 8, -3);
+    drawContext.moveTo(left + 8, -8.8);
+    drawContext.lineTo(left + 10, -6.2);
+    drawContext.lineWidth = 1.6;
+    drawContext.strokeStyle = look.lensShine;
     drawContext.stroke();
   }
   // Nose.
   drawContext.beginPath();
-  drawContext.moveTo(1, -3);
-  drawContext.quadraticCurveTo(6, 7, 0, 9);
+  drawContext.moveTo(1, 1);
+  drawContext.quadraticCurveTo(6, 8, 0, 10);
   setInk(2);
-  // A big grin with a row of teeth.
-  drawContext.beginPath();
-  drawContext.moveTo(-15, 13);
-  drawContext.quadraticCurveTo(0, 17, 15, 13);
-  drawContext.quadraticCurveTo(0, 33, -15, 13);
-  drawContext.closePath();
+  // The mouth: a big grin with a row of teeth, opening when falling.
+  setMouthPath(pose.mouth);
   drawContext.fillStyle = look.mouth;
   drawContext.fill();
   drawContext.save();
   drawContext.clip();
   drawContext.fillStyle = look.teeth;
-  drawContext.fillRect(-16, 10, 32, 9);
+  drawContext.fillRect(-16, 4, 32, 15 - pose.mouth * 3);
   drawContext.restore();
-  drawContext.beginPath();
-  drawContext.moveTo(-15, 13);
-  drawContext.quadraticCurveTo(0, 17, 15, 13);
-  drawContext.quadraticCurveTo(0, 33, -15, 13);
-  drawContext.closePath();
+  setMouthPath(pose.mouth);
   setInk(2.5);
-  for (const side of [-1, 1]) {
-    drawContext.beginPath();
-    drawContext.arc(side * 17, 12, 3, side * 0.2 - 1.2, side * 0.2 + 1.2);
-    drawContext.lineWidth = 1.5;
-    drawContext.strokeStyle = getSunColour(SUN.outline, 0.6);
-    drawContext.stroke();
-  }
   // The fringe of curls over the forehead.
   setHairCurls([
     [-25, -21, 9], [-13, -28, 10], [1, -30, 10.5], [14, -27, 10], [25, -19, 8.5],
-  ], seconds + 0.7, 2.2);
+  ], seconds + 0.7, 2.2, pose.wind);
+}
+
+function setSpeedLines(centre, radius, seconds) {
+  // Cartoon speed lines streaming out behind it when it's going fast.
+  const look = SUN.avatar;
+  const speed = Math.hypot(sunState.vx, sunState.vy);
+  const strength = getSmoothStep(look.linesFrom, look.linesFrom * 2.5, speed);
+  if (strength <= 0 || sunMotion.matches) {
+    return;
+  }
+  const backX = -sunState.vx / speed;
+  const backY = -sunState.vy / speed;
+  drawContext.lineCap = "round";
+  for (let k = 0; k < 5; k++) {
+    const offset = (k - 2) * radius * 0.4;
+    const start = radius * (1.1 + 0.5 * ((seconds * 2.5 + k * 0.37) % 1));
+    const length = radius * (0.7 + 0.35 * (k % 2));
+    const x = centre - backY * offset + backX * start;
+    const y = centre + backX * offset + backY * start;
+    drawContext.beginPath();
+    drawContext.moveTo(x, y);
+    drawContext.lineTo(x + backX * length, y + backY * length);
+    drawContext.lineWidth = Math.max(2.5, radius * 0.11);
+    drawContext.strokeStyle = getSunColour(SUN.outline, 0.5 * strength);
+    drawContext.stroke();
+    drawContext.lineWidth = Math.max(1.5, radius * 0.06);
+    drawContext.strokeStyle = getSunColour("--cream", 0.9 * strength);
+    drawContext.stroke();
+  }
 }
 
 function setOrb(centre, radius, seconds) {
-  // The cartoon, bobbing gently (and bouncing while it celebrates).
+  // The cartoon in its current pose, facing the way it's going, bobbing
+  // gently (and bouncing while it celebrates).
   setOrbAura(centre, radius, seconds);
+  setSpeedLines(centre, radius, seconds);
   const look = SUN.avatar;
+  const pose = getAvatarPose(seconds);
   let bob = 0;
   if (!sunMotion.matches) {
-    bob = Math.sin(seconds * 2) * look.bob;
+    bob = Math.sin(seconds * 2) * look.bob * pose.weights.still;
     if (seconds < sunState.celebrateUntil) {
       bob = -Math.abs(Math.sin(seconds * 9)) * look.bob * 4;
     }
   }
+  const unit = radius / 40;
   drawContext.save();
   drawContext.translate(centre, centre);
-  drawContext.scale(radius / 40, radius / 40);
+  drawContext.scale(unit * sunState.facing, unit);
   drawContext.translate(0, bob);
-  setAvatarBody();
-  drawContext.translate(0, -12);
-  drawContext.rotate(Math.sin(seconds * 0.9) * 0.04);
-  setAvatarFace(seconds);
+  drawContext.rotate(pose.lean);
+  setAvatarLeg(-9, 33, pose.legBack, pose.kneeBack);
+  setAvatarLeg(9, 33, pose.legFront, pose.kneeFront);
+  setAvatarTorso();
+  drawContext.save();
+  drawContext.translate(0, -46);
+  drawContext.rotate(Math.sin(seconds * 0.9) * 0.04 * pose.weights.still);
+  setAvatarFace(seconds, pose);
+  drawContext.restore();
+  const backHand = setAvatarArm(-20, -2, pose.armBack, pose.elbowBack);
+  setAvatarStick(backHand, pose.weights.still);
+  setAvatarArm(20, -2, pose.armFront, pose.elbowFront);
   drawContext.restore();
 }
 
@@ -876,7 +1204,7 @@ function setAboutIcon(main, accent, cream, seconds) {
   drawContext.quadraticCurveTo(-13, 3, 0, 3);
   drawContext.quadraticCurveTo(13, 3, 13, 15);
   drawContext.closePath();
-  drawContext.fillStyle = look.shirt;
+  drawContext.fillStyle = look.flannel;
   drawContext.fill();
   setInk(2.2);
   setFilledEllipse(0, -5, 7.5, 8.5, look.skin, 2);
@@ -888,8 +1216,11 @@ function setAboutIcon(main, accent, cream, seconds) {
   drawContext.moveTo(-3.5, -1);
   drawContext.quadraticCurveTo(0, 2.5, 3.5, -1);
   setInk(1.4);
-  setFilledEllipse(-2.8, -5, 1, 1.2, look.eyes, 0);
-  setFilledEllipse(2.8, -5, 1, 1.2, look.eyes, 0);
+  setRoundedBox(-5.6, -7, 4.6, 3.2, 1.2);
+  drawContext.fillStyle = look.lens;
+  drawContext.fill();
+  setRoundedBox(1, -7, 4.6, 3.2, 1.2);
+  drawContext.fill();
 }
 
 function setContactIcon(main, accent, cream, seconds) {
@@ -1387,6 +1718,7 @@ function setKeyboardHandlers() {
 function setSunFrame(seconds) {
   setSunTarget(seconds);
   setSunPosition(seconds);
+  setAvatarMotion(seconds);
 
   // The planets' clock stops while one is in focus, so labels stay put.
   const step = Math.max(0, Math.min(0.1, seconds - sunState.lastSeconds));

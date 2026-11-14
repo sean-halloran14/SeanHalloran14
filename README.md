@@ -71,10 +71,15 @@ names or data.
   - The ray directions get a new random layout on every visit. The layout number is printed in the
     browser console; open the page with `?swirls=12345` to see a layout again, or set
     `swirlSeed: 12345` in `BG` to keep one for good.
-- `sun.js` draws the centre point as a cartoon of me (curly hair, big grin, blue tee and backpack
-  straps; colours in `SUN.avatar`), bobbing and blinking in a warm glow, with the planets orbiting
-  it as ink-outlined icons for what they hold (settings in `SUN`). It's still called the orb in the
-  code. Hover a planet for its title; click it for the full panel. The orb glides wherever you click.
+- `sun.js` draws the centre point as a full-body cartoon of me (curly hair, sunglasses, big grin,
+  green flannel, brown trousers, green sandals; colours in `SUN.avatar`) in a warm glow, with the
+  planets orbiting it as ink-outlined icons for what they hold (settings in `SUN`). It's still called
+  the orb in the code. It measures its own speed every frame (`setAvatarMotion`), whatever moved it,
+  and blends between poses (`AVATAR_POSES`): hovering and waving with a hiking stick when still,
+  leaning in fist-first flying sideways, arms up going up, flailing with knees tucked coming down.
+  It turns to face the way it's going, its hair blows in the wind, and speed lines trail behind it
+  when it's fast (`moveFrom`, `moveFull`, `linesFrom` and friends). Hover a planet for its title;
+  click it for the full panel. The orb glides wherever you click.
 - `hunt.js` turns it into a game: every planet starts hidden somewhere in the world. A radar in the
   corner points to the nearest one and pulses faster as you get close; flying close to a hidden planet
   (or clicking it) catches it (it flies home into orbit and its panel opens). A "Contents" button (top left) lists the planets found so far, and clicking one opens its panel. "Show me everything" skips the hunt, and once all
