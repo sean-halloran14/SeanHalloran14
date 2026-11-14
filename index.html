@@ -63,43 +63,45 @@
 
            Per item:
              data-tag          small label above the title
+             data-icon         the planet's icon: pipeline, migrate, diagnostics,
+                               docs, about or contact (drawn in sun.js)
              .planet-title     the title (also the hover label)
              .planet-text      a short description
              .planet-tools     tools / skills shown as chips (optional)
              .planet-links     links shown as buttons (optional)
            Replace the [bracketed] text with your own. -->
       <ul class="planet-list sr-only">
-        <li data-tag="Pipelines">
+        <li data-tag="Pipelines" data-icon="pipeline">
           <a class="planet-title" href="projects/nightly-pipeline.html">One nightly pipeline for a company's sales data</a>
           <p class="planet-text">A vending and food-service company's reporting ran on 46 separately scheduled pipelines, dataflows and notebooks that had grown one report at a time. I rebuilt it as a single object-oriented Python pipeline in Microsoft Fabric: each night it downloads 56 API reports, keeps the raw copies, and builds 58 cleaned and 15 business tables, checking and logging itself as it goes. It runs in about 13 minutes instead of roughly 6 hours of daily run time, fills in missed days on its own, and keeps every business rule in one documented place.</p>
           <ul class="planet-tools"><li>Python</li><li>Polars</li><li>DuckDB</li><li>Delta Lake</li><li>Microsoft Fabric</li><li>Power BI</li></ul>
           <div class="planet-links"><a href="projects/pipeline-game.html">Play it as a game</a><a href="projects/nightly-pipeline.html">Read the full story</a></div>
         </li>
-        <li data-tag="Pipelines">
+        <li data-tag="Pipelines" data-icon="migrate">
           <a class="planet-title" href="projects/nightly-pipeline.html#moving-over">Migrating a live workspace without breaking reports</a>
           <p class="planet-text">Moving a company's live reporting onto a new design without breaking anyone's reports. I rebuilt the work in a separate test copy, kept the business rules the original had established, and compared the new tables with the old ones value by value while both ran side by side. The approach is now written up as a repeatable pattern, and the company's other data sources (CRM, accounting, point of sale) are starting to move the same way.</p>
           <ul class="planet-tools"><li>Python</li><li>DuckDB</li><li>SQL</li><li>Medallion architecture</li><li>Microsoft Fabric</li></ul>
           <div class="planet-links"><a href="projects/nightly-pipeline.html#moving-over">Read how it moved</a></div>
         </li>
-        <li data-tag="Analytics">
+        <li data-tag="Analytics" data-icon="diagnostics">
           <a class="planet-title" href="projects/nightly-pipeline.html#looks-after-itself">A pipeline that reports on itself</a>
           <p class="planet-text">Checking whether a night's data had loaded used to mean looking through 46 run histories. I built diagnostics into the pipeline: every run logs each report and table (rows loaded, freshness, and warnings such as a sudden drop in rows or an empty download) and marks the whole run failed if anything is missing, so problems are known the same morning. A Power BI report shows the log, and another flags mismatches in an operations team's spreadsheet so they can fix them at the source.</p>
           <ul class="planet-tools"><li>Python</li><li>Polars</li><li>Delta Lake</li><li>Power BI</li><li>Observability</li></ul>
           <div class="planet-links"><a href="projects/nightly-pipeline.html#looks-after-itself">See how it checks itself</a></div>
         </li>
-        <li data-tag="Documentation">
+        <li data-tag="Documentation" data-icon="docs">
           <a class="planet-title" href="projects/nightly-pipeline.html#documentation">Writing it down so others can use it</a>
           <p class="planet-text">A data platform only helps if people can use it and change it safely. For the pipeline rebuild I wrote three documents: a plain-language overview for managers comparing the old and new setups, an 18-page analyst guide with recipes for querying the tables, building Power BI reports and adding features through a test copy, and a 50-page developer reference covering every business rule, table and class. Each rule lives in one documented place, so someone new can find it and see how it works.</p>
           <ul class="planet-tools"><li>Technical writing</li><li>Python</li><li>SQL</li><li>Power BI</li></ul>
           <div class="planet-links"><a href="projects/nightly-pipeline.html#documentation">Read about the docs</a></div>
         </li>
-        <li data-tag="About">
+        <li data-tag="About" data-icon="about">
           <a class="planet-title" href="#">About me</a>
           <p class="planet-text">[A short paragraph: your background, what kind of problems you enjoy, and what you're looking for next.]</p>
           <ul class="planet-tools"><li>Python</li><li>SQL</li><li>DAX</li><li>Microsoft Fabric</li><li>Delta Lake</li><li>DuckDB</li><li>Polars</li><li>Power BI</li><li>Git</li><li>REST APIs</li><li>Django</li></ul>
           <div class="planet-links"><a href="resume.pdf">Download résumé</a></div>
         </li>
-        <li data-tag="Contact">
+        <li data-tag="Contact" data-icon="contact">
           <a class="planet-title" href="#">Let's build something</a>
           <p class="planet-text">[Open to roles / freelance / collaborations.]</p>
           <div class="planet-links">

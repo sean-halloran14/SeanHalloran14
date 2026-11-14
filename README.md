@@ -1,6 +1,6 @@
 # Portfolio site
 
-An interactive, trippy-cartoon portfolio: a glowing orb with planets circling it, in an endless
+An interactive, trippy-cartoon portfolio: a glowing cartoon of me with project icons circling it, in an endless
 painted panorama (banded sunset, night and dawn skies, inked snowy mountain ranges, pine forests, a
 glowing river and a mirror lake) that you explore by flying the orb (hold the mouse or a finger down, arrow keys/WASD, or the wheel). Each
 planet opens one item (a project, About, or Contact). `BG.zoom` in `background.js` (0.6) sets how zoomed out everything is. The orb roams freely round the screen and the view only pans when it nears an edge; the SH. mark flies it
@@ -27,6 +27,8 @@ All the words live in one hidden list in `index.html`: `<ul class="planet-list">
 one planet, from the innermost orbit outward. Search for `[` to find every placeholder.
 
 - `data-tag` - the small label above the title (e.g. Pipelines, About).
+- `data-icon` - the icon the planet is drawn as: `pipeline`, `migrate`, `diagnostics`, `docs`,
+  `about` or `contact` (drawn in `sun.js`, `setPlanetIcon`; leave it off for a plain blob planet).
 - `.planet-title` - the title, also shown when the planet is hovered.
 - `.planet-text` - a short description.
 - `.planet-tools` - tools or skills, shown as chips (optional).
@@ -69,8 +71,10 @@ names or data.
   - The ray directions get a new random layout on every visit. The layout number is printed in the
     browser console; open the page with `?swirls=12345` to see a layout again, or set
     `swirlSeed: 12345` in `BG` to keep one for good.
-- `sun.js` draws the centre point as a morphing orb with the planets orbiting it (settings in `SUN`).
-  Hover a planet for its title; click it for the full panel. The orb glides wherever you click.
+- `sun.js` draws the centre point as a cartoon of me (curly hair, big grin, blue tee and backpack
+  straps; colours in `SUN.avatar`), bobbing and blinking in a warm glow, with the planets orbiting
+  it as ink-outlined icons for what they hold (settings in `SUN`). It's still called the orb in the
+  code. Hover a planet for its title; click it for the full panel. The orb glides wherever you click.
 - `hunt.js` turns it into a game: every planet starts hidden somewhere in the world. A radar in the
   corner points to the nearest one and pulses faster as you get close; flying close to a hidden planet
   (or clicking it) catches it (it flies home into orbit and its panel opens). A "Contents" button (top left) lists the planets found so far, and clicking one opens its panel. "Show me everything" skips the hunt, and once all

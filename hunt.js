@@ -28,7 +28,7 @@
 
 const HUNT = {
   storageKey: "portfolio-planets-found",
-  size: 2.5,               // hidden planets are drawn this much bigger than in orbit
+  size: 1.7,               // hidden planets are drawn this much bigger than in orbit
   wander: 45,              // how far a hidden planet drifts round its spot, px
   wanderSpeed: [0.12, 0.28],  // drift speed range, radians per second (slow, so they're easy to click)
   spread: 2.2,             // planets hide up to this many screens from the orb, each way

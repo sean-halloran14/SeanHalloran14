@@ -1,16 +1,18 @@
 // =============================================================================
 // The orb and its planets
 // =============================================================================
-// The background's centre point (background.js) is drawn as a glowing orb: an
-// abstract, slowly morphing blob built from layers of the palette's warm
-// colours, with soft lumpy edges and a cosy cartoon outline. The rings pouring
-// out of the point and the rays streaming from it come from background.js.
+// The background's centre point (background.js) is drawn as a glowing
+// cartoon of me: a big ink-outlined head with curly hair and a wide grin, on
+// small shoulders in a blue tee with backpack straps, bobbing gently and
+// blinking now and then, with a warm glow and wavy aura rings round it (it's
+// still called the orb in the code). The rays streaming from it come from
+// background.js.
 //
-// The orb's layers throb out of step, a spiral turns inside it and wavy aura
-// rings pulse out from it. Planets circle it in the page's own colours, each
-// a wobbly blob with a turning stripe, on its own randomly shaped orbit (a
-// tilted oval that slowly turns, with little loops in it), leaving its own
-// fading cartoon trail behind it. Each
+// Planets circle it, each drawn as an ink-outlined icon for what it holds
+// (data-icon on its item: a database for the pipeline, a migration, a
+// diagnostics monitor, a book, a little me, an envelope), on its own randomly
+// shaped orbit (a tilted oval that slowly turns, with little loops in it),
+// leaving its own fading cartoon trail behind it. Each
 // planet is one item from the hidden .planet-list in index.html (projects,
 // About, Contact), in order from the innermost orbit out:
 //
@@ -29,29 +31,36 @@
 // =============================================================================
 
 const SUN = {
-  coreRadius: 40,          // size of the orb, px
+  coreRadius: 72,          // size of the cartoon (its head is about this wide), px
   outline: "--brown-deep", // outline colour
   outlineWidth: 3,         // px
-  // The orb's layers, outside in: colour, size (share of coreRadius), how
-  // lumpy the edge is, and how fast its lumps drift (negative = other way).
-  layers: [
-    { colour: "--ember", size: 1.3, lumps: 0.09, drift: 0.22 },
-    { colour: "--sunset", size: 1.05, lumps: 0.08, drift: -0.3 },
-    { colour: "--sun-glow", size: 0.78, lumps: 0.1, drift: 0.38 },
-    { colour: "--horizon", size: 0.52, lumps: 0.12, drift: -0.5 },
-    { colour: "--sun-core", size: 0.28, lumps: 0.14, drift: 0.65 },
-  ],
-  glowRadius: 4.5,         // warm halo size, as a multiple of the orb
+  // The cartoon of me (the orb). Colours from a photo, warmed a little to
+  // suit the paintings.
+  avatar: {
+    skin: "#f2b48e",
+    skinShade: "#d98c6a",
+    blush: "rgba(236, 120, 110, 0.45)",
+    stubble: "rgba(95, 62, 45, 0.2)",
+    hair: "#5a3923",
+    hairLight: "#8f5d38",
+    eyes: "#3a2a20",
+    mouth: "#7a1f2b",
+    teeth: "#fff8ee",
+    shirt: "#5e7ca6",
+    shirtShade: "#47628c",
+    strap: "#23262f",
+    buckle: "#9aa3ad",
+    bob: 2,                // how far it bobs, in the cartoon's own units
+    blinkEvery: 4.3,       // seconds between blinks
+  },
+  glowRadius: 4.5,         // warm halo size, as a multiple of coreRadius
   glowStrength: 0.26,      // halo opacity (0-1)
   glide: 1.1,              // seconds for the orb to glide to a clicked spot
   followDistance: 90,      // moves smaller than this (flying) are followed at once, px
-  layerPulse: 0.08,        // how much the orb's layers throb (share of their size)
-  spiralArms: 4,           // arms of the spiral inside the orb
-  spiralTwist: 4.5,        // how tightly it winds, radians from centre to edge
-  spiralSpeed: 0.9,        // how fast it turns, radians per second
   auraRings: 3,            // wavy rings pulsing out from the orb
   auraSpeed: 0.35,         // how fast they pulse out
-  planetWobble: 0.09,      // how blobby the planets are (share of their size)
+  planetWobble: 0.09,      // how blobby planets without an icon are (share of their size)
+  iconRock: 0.12,          // how far the icons rock back and forth, radians
   stripeSpeed: 0.8,        // how fast the planets' stripes turn, radians per second
   // Random orbits: each planet gets its own (from the swirl seed, so
   // ?swirls=12345 repeats a layout). Ranges are [smallest, largest].
@@ -65,17 +74,19 @@ const SUN = {
   trailLife: 2.4,          // seconds a planet's trail lasts
   trailWidth: 1.0,         // trail width at the planet, as a multiple of its size
   // Planet looks, innermost first. Each planet's content is the item in the
-  // same position in .planet-list. Orbit distance (px), size (px), colour and
-  // stripe colour from styles.css, and extras. Speeds follow the orbit.
+  // same position in .planet-list, and its icon is that item's data-icon.
+  // Orbit distance (px), size (px), main and accent colours from styles.css.
+  // Rings and moons only show on planets without an icon. Speeds follow the
+  // orbit.
   planets: [
-    { orbit: 95, size: 8, colour: "--sky-light", stripe: "--sky", ring: false, moon: false },
-    { orbit: 145, size: 10, colour: "--sage", stripe: "--forest", ring: false, moon: true },
-    { orbit: 195, size: 9, colour: "--tan", stripe: "--sunset", ring: true, moon: false },
-    { orbit: 245, size: 12, colour: "--sky", stripe: "--sky-light", ring: false, moon: false },
-    { orbit: 295, size: 9, colour: "--olive", stripe: "--sage", ring: false, moon: false },
-    { orbit: 345, size: 11, colour: "--horizon", stripe: "--ember", ring: false, moon: true },
-    { orbit: 395, size: 10, colour: "--cream", stripe: "--horizon", ring: true, moon: false },
-    { orbit: 445, size: 9, colour: "--earth", stripe: "--tan-dark", ring: false, moon: true },
+    { orbit: 160, size: 25, colour: "--sky-light", stripe: "--sky", ring: false, moon: false },
+    { orbit: 215, size: 25, colour: "--sage", stripe: "--sunset", ring: false, moon: true },
+    { orbit: 270, size: 25, colour: "--tan", stripe: "--sun-glow", ring: true, moon: false },
+    { orbit: 325, size: 25, colour: "--sky", stripe: "--sunset", ring: false, moon: false },
+    { orbit: 380, size: 25, colour: "--olive", stripe: "--sage", ring: false, moon: false },
+    { orbit: 435, size: 25, colour: "--horizon", stripe: "--ember", ring: false, moon: true },
+    { orbit: 490, size: 22, colour: "--cream", stripe: "--horizon", ring: true, moon: false },
+    { orbit: 545, size: 22, colour: "--earth", stripe: "--tan-dark", ring: false, moon: true },
   ],
   innerSpeed: 0.45,        // radians per second for the innermost orbit
   hoverReach: 14,          // how close the pointer must be to a planet's edge, px
@@ -325,60 +336,11 @@ function setBlobPath(cx, cy, radius, lumps, drift, seconds, seed, steps) {
   drawContext.closePath();
 }
 
-function getLayerSize(layer, index, seconds) {
-  // Each layer swells and shrinks out of step with its neighbours, so the orb
-  // seems to throb from the inside out.
-  let pulse = SUN.layerPulse;
-  let speed = 2.2;
-  if (seconds < sunState.celebrateUntil) {
-    pulse = pulse * 3;
-    speed = 6;
-  }
-  return layer.size * (1 + pulse * Math.sin(seconds * speed - index * 1.1));
-}
-
-function setOrbSpiral(centre, radius, seconds) {
-  // A slowly turning hypnotic spiral inside the orb, clipped to its edge.
-  const outer = SUN.layers[0];
-  drawContext.save();
-  setBlobPath(centre, centre, radius * getLayerSize(outer, 0, seconds), outer.lumps, outer.drift, seconds, 0, 64);
-  drawContext.clip();
-  drawContext.lineCap = "round";
-  for (let arm = 0; arm < SUN.spiralArms; arm++) {
-    drawContext.beginPath();
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      const along = i / steps;
-      const r = radius * (0.08 + along * 1.25);
-      let spin = seconds * SUN.spiralSpeed;
-      if (seconds < sunState.celebrateUntil) {
-        spin = spin * 4;
-      }
-      const angle = arm / SUN.spiralArms * Math.PI * 2 + along * SUN.spiralTwist + spin;
-      const x = centre + Math.cos(angle) * r;
-      const y = centre + Math.sin(angle) * r;
-      if (i === 0) {
-        drawContext.moveTo(x, y);
-      } else {
-        drawContext.lineTo(x, y);
-      }
-    }
-    drawContext.lineWidth = radius * 0.14;
-    if (arm % 2 === 0) {
-      drawContext.strokeStyle = getSunColour("--ember", 0.5);
-    } else {
-      drawContext.strokeStyle = getSunColour("--sun-core", 0.45);
-    }
-    drawContext.stroke();
-  }
-  drawContext.restore();
-}
-
 function setOrbAura(centre, radius, seconds) {
-  // Wavy outlines that keep pulsing out from the orb's edge and fading.
+  // Wavy outlines that keep pulsing out from round the cartoon and fading.
   for (let k = 0; k < SUN.auraRings; k++) {
     const phase = (seconds * SUN.auraSpeed + k / SUN.auraRings) % 1;
-    const r = radius * (1.35 + phase * 1.6);
+    const r = radius * (1.7 + phase * 1.6);
     setBlobPath(centre, centre, r, 0.06, 0.6, seconds, k * 1.7, 64);
     drawContext.lineWidth = 3 * sunState.scale * (1 - phase * 0.5);
     drawContext.strokeStyle = getSunColour("--sun-glow", 0.55 * (1 - phase));
@@ -386,20 +348,244 @@ function setOrbAura(centre, radius, seconds) {
   }
 }
 
-function setOrb(centre, radius, seconds) {
-  setOrbAura(centre, radius, seconds);
-  for (let i = 0; i < SUN.layers.length; i++) {
-    const layer = SUN.layers[i];
-    setBlobPath(centre, centre, radius * getLayerSize(layer, i, seconds), layer.lumps, layer.drift, seconds, i, 64);
-    drawContext.fillStyle = getSunColour(layer.colour, 1);
+function setInk(width) {
+  // Strokes the current path in ink. The width is in the current units, so
+  // inside the cartoon or an icon it scales with them.
+  drawContext.lineWidth = width;
+  drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+  drawContext.lineJoin = "round";
+  drawContext.lineCap = "round";
+  drawContext.stroke();
+}
+
+function setFilledEllipse(x, y, rx, ry, colour, ink) {
+  drawContext.beginPath();
+  drawContext.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  drawContext.fillStyle = colour;
+  drawContext.fill();
+  if (ink > 0) {
+    setInk(ink);
+  }
+}
+
+function setRoundedBox(x, y, width, height, radius) {
+  drawContext.beginPath();
+  drawContext.moveTo(x + radius, y);
+  drawContext.arcTo(x + width, y, x + width, y + height, radius);
+  drawContext.arcTo(x + width, y + height, x, y + height, radius);
+  drawContext.arcTo(x, y + height, x, y, radius);
+  drawContext.arcTo(x, y, x + width, y, radius);
+  drawContext.closePath();
+}
+
+// ---------- The orb: a cartoon of me ----------
+// Drawn in its own units: the head is about 70 across, a little above the
+// middle, with the shoulders below.
+
+function setAvatarBody() {
+  const look = SUN.avatar;
+  // Shoulders in a blue tee.
+  drawContext.beginPath();
+  drawContext.moveTo(-13, 27);
+  drawContext.quadraticCurveTo(-40, 31, -46, 58);
+  drawContext.quadraticCurveTo(0, 74, 46, 58);
+  drawContext.quadraticCurveTo(40, 31, 13, 27);
+  drawContext.closePath();
+  drawContext.fillStyle = look.shirt;
+  drawContext.fill();
+  setInk(3);
+  // Shade down the far side.
+  drawContext.save();
+  drawContext.clip();
+  drawContext.beginPath();
+  drawContext.ellipse(34, 52, 16, 26, -0.3, 0, Math.PI * 2);
+  drawContext.fillStyle = look.shirtShade;
+  drawContext.fill();
+  drawContext.restore();
+  // Neck and collar.
+  drawContext.beginPath();
+  drawContext.moveTo(-9, 16);
+  drawContext.lineTo(-10, 30);
+  drawContext.quadraticCurveTo(0, 36, 10, 30);
+  drawContext.lineTo(9, 16);
+  drawContext.closePath();
+  drawContext.fillStyle = look.skinShade;
+  drawContext.fill();
+  setInk(2.5);
+  drawContext.beginPath();
+  drawContext.moveTo(-12, 29);
+  drawContext.quadraticCurveTo(0, 38, 12, 29);
+  drawContext.strokeStyle = look.shirtShade;
+  drawContext.lineWidth = 3.5;
+  drawContext.stroke();
+  // Backpack straps with buckles.
+  for (const side of [-1, 1]) {
+    drawContext.beginPath();
+    drawContext.moveTo(side * 21, 30);
+    drawContext.quadraticCurveTo(side * 31, 44, side * 27, 66);
+    drawContext.lineWidth = 10;
+    drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+    drawContext.stroke();
+    drawContext.lineWidth = 7;
+    drawContext.strokeStyle = look.strap;
+    drawContext.stroke();
+    setRoundedBox(side * 29 - 4.5, 44, 9, 6, 1.5);
+    drawContext.fillStyle = look.buckle;
     drawContext.fill();
-    // An ink line round every layer: thick outside, thinner further in.
-    setOutline(SUN.outlineWidth * (1 - i * 0.15));
-    if (i === 1) {
-      // The spiral sits under the inner layers, so it peeks between them.
-      setOrbSpiral(centre, radius, seconds);
+    setInk(1.5);
+  }
+}
+
+function setHairCurls(curls, seconds, inkWidth) {
+  // A mop of curls: every curl in ink first (a little bigger), then all of
+  // them in colour, so the outline only shows round the outside. Each curl
+  // bounces a little and gets a highlight swirl.
+  const look = SUN.avatar;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < curls.length; i++) {
+      const curl = curls[i];
+      const bounce = Math.sin(seconds * 2.6 + i * 1.3) * 0.5;
+      drawContext.beginPath();
+      if (pass === 0) {
+        drawContext.arc(curl[0], curl[1], curl[2] + bounce + inkWidth, 0, Math.PI * 2);
+        drawContext.fillStyle = getSunColour(SUN.outline, 0.95);
+      } else {
+        drawContext.arc(curl[0], curl[1], curl[2] + bounce, 0, Math.PI * 2);
+        drawContext.fillStyle = look.hair;
+      }
+      drawContext.fill();
     }
   }
+  drawContext.lineCap = "round";
+  for (let i = 0; i < curls.length; i++) {
+    const curl = curls[i];
+    const start = i * 1.9;
+    drawContext.beginPath();
+    drawContext.arc(curl[0], curl[1], curl[2] * 0.55, start, start + 3.6);
+    drawContext.lineWidth = 2.2;
+    drawContext.strokeStyle = look.hairLight;
+    drawContext.stroke();
+    drawContext.beginPath();
+    drawContext.arc(curl[0] + 1, curl[1] + 1, curl[2] * 0.85, start + 3.4, start + 4.6);
+    drawContext.lineWidth = 1.4;
+    drawContext.strokeStyle = getSunColour(SUN.outline, 0.6);
+    drawContext.stroke();
+  }
+}
+
+function setAvatarFace(seconds) {
+  const look = SUN.avatar;
+  // Ears, then the hair behind the head, then the face.
+  setFilledEllipse(-33, 0, 6, 9, look.skin, 2.5);
+  setFilledEllipse(33, 0, 6, 9, look.skin, 2.5);
+  setHairCurls([
+    [-30, -16, 13], [-20, -31, 15], [-2, -37, 17], [17, -33, 15], [31, -19, 13],
+    [-36, -4, 8], [36, -5, 8],
+  ], seconds, 2.8);
+  drawContext.beginPath();
+  drawContext.ellipse(0, 0, 31, 36, 0, 0, Math.PI * 2);
+  drawContext.fillStyle = look.skin;
+  drawContext.fill();
+  setInk(3);
+  // Stubble round the jaw, and rosy cheeks.
+  drawContext.save();
+  drawContext.beginPath();
+  drawContext.ellipse(0, 0, 31, 36, 0, 0, Math.PI * 2);
+  drawContext.clip();
+  setFilledEllipse(0, 30, 27, 17, look.stubble, 0);
+  drawContext.restore();
+  setFilledEllipse(-19, 9, 6, 3.5, look.blush, 0);
+  setFilledEllipse(19, 9, 6, 3.5, look.blush, 0);
+
+  // Eyebrows.
+  drawContext.lineCap = "round";
+  for (const side of [-1, 1]) {
+    drawContext.beginPath();
+    drawContext.moveTo(side * 19, -12);
+    drawContext.quadraticCurveTo(side * 12, -17, side * 5, -13);
+    drawContext.lineWidth = 3.2;
+    drawContext.strokeStyle = look.hair;
+    drawContext.stroke();
+  }
+  // Smiling eyes that blink now and then.
+  const blinking = (seconds % look.blinkEvery) < 0.14;
+  for (const side of [-1, 1]) {
+    const x = side * 12;
+    if (blinking) {
+      drawContext.beginPath();
+      drawContext.moveTo(x - 6, -4);
+      drawContext.quadraticCurveTo(x, -1, x + 6, -4);
+      setInk(2);
+    } else {
+      setFilledEllipse(x, -4, 6.5, 4.6, look.teeth, 1.8);
+      setFilledEllipse(x + 0.6, -3.6, 3.1, 3.3, look.eyes, 0);
+      setFilledEllipse(x + 1.7, -5, 1.1, 1.1, look.teeth, 0);
+    }
+    // Smile creases under the eyes.
+    drawContext.beginPath();
+    drawContext.moveTo(x - 5, 2);
+    drawContext.quadraticCurveTo(x, 4.5, x + 5, 2);
+    drawContext.lineWidth = 1.2;
+    drawContext.strokeStyle = getSunColour(SUN.outline, 0.45);
+    drawContext.stroke();
+  }
+  // Nose.
+  drawContext.beginPath();
+  drawContext.moveTo(1, -3);
+  drawContext.quadraticCurveTo(6, 7, 0, 9);
+  setInk(2);
+  // A big grin with a row of teeth.
+  drawContext.beginPath();
+  drawContext.moveTo(-15, 13);
+  drawContext.quadraticCurveTo(0, 17, 15, 13);
+  drawContext.quadraticCurveTo(0, 33, -15, 13);
+  drawContext.closePath();
+  drawContext.fillStyle = look.mouth;
+  drawContext.fill();
+  drawContext.save();
+  drawContext.clip();
+  drawContext.fillStyle = look.teeth;
+  drawContext.fillRect(-16, 10, 32, 9);
+  drawContext.restore();
+  drawContext.beginPath();
+  drawContext.moveTo(-15, 13);
+  drawContext.quadraticCurveTo(0, 17, 15, 13);
+  drawContext.quadraticCurveTo(0, 33, -15, 13);
+  drawContext.closePath();
+  setInk(2.5);
+  for (const side of [-1, 1]) {
+    drawContext.beginPath();
+    drawContext.arc(side * 17, 12, 3, side * 0.2 - 1.2, side * 0.2 + 1.2);
+    drawContext.lineWidth = 1.5;
+    drawContext.strokeStyle = getSunColour(SUN.outline, 0.6);
+    drawContext.stroke();
+  }
+  // The fringe of curls over the forehead.
+  setHairCurls([
+    [-25, -21, 9], [-13, -28, 10], [1, -30, 10.5], [14, -27, 10], [25, -19, 8.5],
+  ], seconds + 0.7, 2.2);
+}
+
+function setOrb(centre, radius, seconds) {
+  // The cartoon, bobbing gently (and bouncing while it celebrates).
+  setOrbAura(centre, radius, seconds);
+  const look = SUN.avatar;
+  let bob = 0;
+  if (!sunMotion.matches) {
+    bob = Math.sin(seconds * 2) * look.bob;
+    if (seconds < sunState.celebrateUntil) {
+      bob = -Math.abs(Math.sin(seconds * 9)) * look.bob * 4;
+    }
+  }
+  drawContext.save();
+  drawContext.translate(centre, centre);
+  drawContext.scale(radius / 40, radius / 40);
+  drawContext.translate(0, bob);
+  setAvatarBody();
+  drawContext.translate(0, -12);
+  drawContext.rotate(Math.sin(seconds * 0.9) * 0.04);
+  setAvatarFace(seconds);
+  drawContext.restore();
 }
 
 // ---------- Planets ----------
@@ -472,8 +658,13 @@ function getOrbitDirection() {
 }
 
 function setPlanetBody(px, py, size, planet, orbX, orbY, seconds, seed) {
-  // A wobbly blob of flat colour with a swirling stripe band, a soft shadow
+  // A planet with an icon is drawn as that icon (setPlanetIcon). Otherwise:
+  // a wobbly blob of flat colour with a swirling stripe band, a soft shadow
   // crescent away from the orb, a shine dot facing it, and an ink outline.
+  if (planet.icon) {
+    setPlanetIcon(px, py, size, planet, seconds, seed);
+    return;
+  }
   const towardX = orbX - px;
   const towardY = orbY - py;
   const distance = Math.hypot(towardX, towardY) || 1;
@@ -523,6 +714,242 @@ function setPlanetBody(px, py, size, planet, orbX, orbY, seconds, seed) {
 
   setBlobPath(px, py, size, SUN.planetWobble, 1.4, seconds, seed, 28);
   setOutline(Math.max(1.4, SUN.outlineWidth * 0.7));
+}
+
+// ---------- Planet icons ----------
+// Each drawn in its own units, about 30 across, with ink outlines like the
+// rest of the art: main = the planet's colour, accent = its stripe colour.
+
+function setCylinder(x, top, bottom, rx, ry, side, lid) {
+  // A database cylinder: its body, a ring round its middle, and a lid.
+  drawContext.beginPath();
+  drawContext.moveTo(x - rx, top);
+  drawContext.lineTo(x - rx, bottom);
+  drawContext.ellipse(x, bottom, rx, ry, 0, Math.PI, 0, true);
+  drawContext.lineTo(x + rx, top);
+  drawContext.closePath();
+  drawContext.fillStyle = side;
+  drawContext.fill();
+  setInk(2.2);
+  drawContext.beginPath();
+  drawContext.ellipse(x, (top + bottom) / 2, rx, ry, 0, 0, Math.PI, false);
+  setInk(1.5);
+  setFilledEllipse(x, top, rx, ry, lid, 2.2);
+}
+
+function setSparkle(x, y, r, colour) {
+  // A four-pointed star.
+  drawContext.beginPath();
+  drawContext.moveTo(x, y - r);
+  drawContext.quadraticCurveTo(x, y, x + r, y);
+  drawContext.quadraticCurveTo(x, y, x, y + r);
+  drawContext.quadraticCurveTo(x, y, x - r, y);
+  drawContext.quadraticCurveTo(x, y, x, y - r);
+  drawContext.fillStyle = colour;
+  drawContext.fill();
+  setInk(1.2);
+}
+
+function setPipelineIcon(main, accent, cream, seconds) {
+  // The nightly pipeline: a database with a twinkling star over it.
+  setCylinder(0, -8, 9, 11, 4.5, main, cream);
+  drawContext.beginPath();
+  drawContext.ellipse(0, 4.5, 11, 4.5, 0, 0, Math.PI, false);
+  setInk(1.5);
+  setSparkle(12, -14, 4.5 + Math.sin(seconds * 4) * 1.2, getSunColour("--sun-glow", 1));
+}
+
+function setMigrateIcon(main, accent, cream, seconds) {
+  // The migration: an arrow carrying data from an old database to a new one.
+  setCylinder(-9, 0, 10, 6, 2.6, getSunColour("--tan", 1), cream);
+  setCylinder(9, 0, 10, 6, 2.6, main, cream);
+  drawContext.beginPath();
+  drawContext.moveTo(-9, -5);
+  drawContext.quadraticCurveTo(-1, -20, 7, -7);
+  drawContext.lineCap = "round";
+  drawContext.lineWidth = 5.4;
+  drawContext.strokeStyle = getSunColour(SUN.outline, 0.9);
+  drawContext.stroke();
+  drawContext.lineWidth = 3;
+  drawContext.strokeStyle = accent;
+  drawContext.stroke();
+  drawContext.beginPath();
+  drawContext.moveTo(9.6, -2.6);
+  drawContext.lineTo(4.2, -5.4);
+  drawContext.lineTo(10.2, -9.2);
+  drawContext.closePath();
+  drawContext.fillStyle = accent;
+  drawContext.fill();
+  setInk(1.5);
+  // A data dot travelling along the arrow (a point on its curve).
+  const t = (seconds * 0.7) % 1;
+  const dotX = (1 - t) * (1 - t) * -9 + 2 * (1 - t) * t * -1 + t * t * 7;
+  const dotY = (1 - t) * (1 - t) * -5 + 2 * (1 - t) * t * -20 + t * t * -7;
+  setFilledEllipse(dotX, dotY, 1.6, 1.6, cream, 0);
+}
+
+function setDiagnosticsIcon(main, accent, cream, seconds) {
+  // A pipeline that reports on itself: a monitor with a heartbeat line.
+  setRoundedBox(-6, 7, 12, 4, 1);
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(1.8);
+  setRoundedBox(-14, -12, 28, 20, 4);
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2.2);
+  setRoundedBox(-11, -9, 22, 14, 2.5);
+  drawContext.fillStyle = getSunColour("--navy", 1);
+  drawContext.fill();
+  setInk(1.4);
+  const points = [[-9, -2], [-5, -2], [-3, -7], [0, 3], [3, -4], [5, -2], [9, -2]];
+  drawContext.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0) {
+      drawContext.moveTo(points[i][0], points[i][1]);
+    } else {
+      drawContext.lineTo(points[i][0], points[i][1]);
+    }
+  }
+  drawContext.lineWidth = 1.8;
+  drawContext.lineJoin = "round";
+  drawContext.strokeStyle = getSunColour("--sage", 1);
+  drawContext.stroke();
+  // A bright blip runs along the line.
+  const x = -9 + ((seconds * 0.8) % 1) * 18;
+  let y = -2;
+  for (let i = 1; i < points.length; i++) {
+    if (x <= points[i][0]) {
+      const share = (x - points[i - 1][0]) / (points[i][0] - points[i - 1][0]);
+      y = points[i - 1][1] + (points[i][1] - points[i - 1][1]) * share;
+      break;
+    }
+  }
+  setFilledEllipse(x, y, 1.7, 1.7, accent, 0);
+}
+
+function setDocsIcon(main, accent, cream, seconds) {
+  // Writing it down: an open book with lines of text and a ribbon.
+  drawContext.beginPath();
+  drawContext.moveTo(-16, -7);
+  drawContext.lineTo(-16, 12);
+  drawContext.quadraticCurveTo(-7, 9, 0, 13);
+  drawContext.quadraticCurveTo(7, 9, 16, 12);
+  drawContext.lineTo(16, -7);
+  drawContext.closePath();
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2.2);
+  for (const side of [-1, 1]) {
+    drawContext.beginPath();
+    drawContext.moveTo(0, -9);
+    drawContext.quadraticCurveTo(side * 7, -12, side * 14, -10);
+    drawContext.lineTo(side * 14, 9);
+    drawContext.quadraticCurveTo(side * 7, 7, 0, 10);
+    drawContext.closePath();
+    drawContext.fillStyle = cream;
+    drawContext.fill();
+    setInk(1.8);
+    for (let k = 0; k < 3; k++) {
+      drawContext.beginPath();
+      drawContext.moveTo(side * 3, -5 + k * 4);
+      drawContext.lineTo(side * 11, -5.8 + k * 4);
+      drawContext.lineWidth = 1.1;
+      drawContext.strokeStyle = getSunColour(SUN.outline, 0.55);
+      drawContext.stroke();
+    }
+  }
+  drawContext.beginPath();
+  drawContext.moveTo(5, 9);
+  drawContext.lineTo(5 + Math.sin(seconds * 2) * 1.5, 16);
+  drawContext.lineCap = "round";
+  drawContext.lineWidth = 2.4;
+  drawContext.strokeStyle = accent;
+  drawContext.stroke();
+}
+
+function setAboutIcon(main, accent, cream, seconds) {
+  // About me: a little bust with curly hair, like the big one.
+  const look = SUN.avatar;
+  drawContext.beginPath();
+  drawContext.moveTo(-13, 15);
+  drawContext.quadraticCurveTo(-13, 3, 0, 3);
+  drawContext.quadraticCurveTo(13, 3, 13, 15);
+  drawContext.closePath();
+  drawContext.fillStyle = look.shirt;
+  drawContext.fill();
+  setInk(2.2);
+  setFilledEllipse(0, -5, 7.5, 8.5, look.skin, 2);
+  const curls = [[-6, -11, 3.6], [-1, -13.5, 4], [5, -12, 3.6], [-8, -6, 2.4], [8, -7, 2.4]];
+  for (const curl of curls) {
+    setFilledEllipse(curl[0], curl[1], curl[2], curl[2], look.hair, 1.4);
+  }
+  drawContext.beginPath();
+  drawContext.moveTo(-3.5, -1);
+  drawContext.quadraticCurveTo(0, 2.5, 3.5, -1);
+  setInk(1.4);
+  setFilledEllipse(-2.8, -5, 1, 1.2, look.eyes, 0);
+  setFilledEllipse(2.8, -5, 1, 1.2, look.eyes, 0);
+}
+
+function setContactIcon(main, accent, cream, seconds) {
+  // Get in touch: an envelope, its flap in the planet's colour.
+  setRoundedBox(-15, -10, 30, 21, 3);
+  drawContext.fillStyle = cream;
+  drawContext.fill();
+  setInk(2.2);
+  drawContext.beginPath();
+  drawContext.moveTo(-15, 11);
+  drawContext.lineTo(-3, 1);
+  drawContext.moveTo(15, 11);
+  drawContext.lineTo(3, 1);
+  setInk(1.3);
+  drawContext.beginPath();
+  drawContext.moveTo(-14, -9);
+  drawContext.lineTo(0, 3);
+  drawContext.lineTo(14, -9);
+  drawContext.closePath();
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2);
+  setFilledEllipse(0, 1.5, 2.6, 2.6, accent, 1.2);
+}
+
+function setPlanetIcon(px, py, size, planet, seconds, seed) {
+  // A planet drawn as its icon, rocking gently, with a soft glow behind it in
+  // its own colour so it stands out against the painting.
+  const glow = drawContext.createRadialGradient(px, py, size * 0.3, px, py, size * 2.2);
+  glow.addColorStop(0, getSunColour(planet.colour, 0.5));
+  glow.addColorStop(1, getSunColour(planet.colour, 0));
+  drawContext.fillStyle = glow;
+  drawContext.beginPath();
+  drawContext.arc(px, py, size * 2.2, 0, Math.PI * 2);
+  drawContext.fill();
+
+  const main = getSunColour(planet.colour, 1);
+  const accent = getSunColour(planet.stripe, 1);
+  const cream = getSunColour("--cream", 1);
+  drawContext.save();
+  drawContext.translate(px, py);
+  drawContext.rotate(Math.sin(seconds * 1.3 + seed) * SUN.iconRock);
+  drawContext.scale(size / 13, size / 13);
+  if (planet.icon === "pipeline") {
+    setPipelineIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "migrate") {
+    setMigrateIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "diagnostics") {
+    setDiagnosticsIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "docs") {
+    setDocsIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "about") {
+    setAboutIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "contact") {
+    setContactIcon(main, accent, cream, seconds);
+  } else {
+    // An icon name with no drawing yet: a plain sparkle, so nothing goes missing.
+    setSparkle(0, 0, 12, main);
+  }
+  drawContext.restore();
 }
 
 function setPlanetTrailPoint(index, dx, dy, seconds) {
@@ -625,14 +1052,15 @@ function setPlanets(centre, seconds) {
       drawContext.fill();
     }
 
-    if (planet.ring) {
+    const hasRing = planet.ring && !planet.icon;
+    if (hasRing) {
       setPlanetRing(px, py, size, false, seconds);
     }
     setPlanetBody(px, py, size, planet, centre, centre, seconds, i);
-    if (planet.ring) {
+    if (hasRing) {
       setPlanetRing(px, py, size, true, seconds);
     }
-    if (planet.moon) {
+    if (planet.moon && !planet.icon) {
       const moonAngle = seconds * 1.8 + i;
       const moonDistance = size * 2.4;
       setPlanetBody(
@@ -1016,6 +1444,9 @@ function setSunLayout() {
 }
 
 sunState.planetCount = Math.min(SUN.planets.length, planetItems.length);
+for (let i = 0; i < sunState.planetCount; i++) {
+  SUN.planets[i].icon = planetItems[i].dataset.icon || null;
+}
 setPlanetOrbits();
 setSunScale();
 setKeyboardHandlers();
