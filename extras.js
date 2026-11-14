@@ -1,14 +1,16 @@
 // =============================================================================
-// Game extras: river currents, black holes, stardust and boost
+// Game extras: sky-ribbon currents, black holes, stardust and boost
 // =============================================================================
-//   Currents   - star streams carry the orb along their flow and keep it near
-//                their middle (unless the visitor is steering), and flying
-//                is faster in them. (background.js reads the river from its own shader
-//                with getRiverProbe, so it matches what's drawn.)
-//   Black holes - dark swirls scattered through the world pull the orb in
+//   Currents   - the swirling ribbons high in the sky carry the orb along
+//                their flow and keep it near their middle (unless the
+//                visitor is steering), and flying is faster in them.
+//                (background.js reads the ribbons from its own shader with
+//                getRiverProbe, so it matches what's drawn.)
+//   Black holes - dark swirls scattered through the open sky pull the orb in
 //                when it comes close. Fly away to escape; if one swallows the
 //                orb, it's flung out somewhere nearby. They're never placed
-//                near the start or a hidden planet.
+//                near the start, near a hidden planet, or below the peaks
+//                (getIsSkyWorld).
 //   Stardust   - specks of light scattered about. Flying through them fills
 //                the meter under the radar; a full share of it buys a boost
 //                (Space, or the Boost button) that makes the orb much faster
@@ -18,8 +20,8 @@
 // planet's panel is open.
 //
 // Uses from background.js: BG, swirlSeed, getSeededRandom, getWorldOrigin,
-// getCentrePagePoint, getRiverProbe, setCentrePoint, setBackgroundRipple,
-// getRgba. From flight.js: setOrbMovedBy. From hunt.js: huntState.
+// getCentrePagePoint, getRiverProbe, getIsSkyWorld, setCentrePoint,
+// setBackgroundRipple, getRgba. From flight.js: setOrbMovedBy. From hunt.js: huntState.
 // From sun.js: getIsPanelOpen.
 // =============================================================================
 
@@ -121,6 +123,10 @@ function getBlackHoleAt(cellX, cellY) {
   const x = (cellX + 0.15 + 0.7 * random()) * EXTRAS.holeSpacing;
   const y = (cellY + 0.15 + 0.7 * random()) * EXTRAS.holeSpacing;
   if (Math.hypot(x, y) < EXTRAS.holeClearStart || getIsNearHiddenPlanet(x, y)) {
+    return null;
+  }
+  // Only in the open sky, never over the mountains, forest or lake.
+  if (typeof getIsSkyWorld === "function" && !getIsSkyWorld(y + EXTRAS.holeSize)) {
     return null;
   }
   return { x: x, y: y, spin: 1 - 2 * Math.round(random()), phase: random() * Math.PI * 2 };
@@ -365,7 +371,7 @@ function setRiverProbe(now) {
 }
 
 function setCurrentDrift(elapsed, seconds) {
-  // A star stream carries the orb along, fastest mid-stream, and (unless the
+  // A sky ribbon carries the orb along, fastest mid-stream, and (unless the
   // visitor is steering) gently draws it to the middle, where it drifts a
   // few px either side, so it doesn't slide out on a bend. Steering turns
   // the pull off, so the arrow keys, holding or the wheel get out easily.

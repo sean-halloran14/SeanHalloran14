@@ -22,7 +22,7 @@
 // jumps back to any level already reached. Settings are in GAME; most words
 // are in the HTML, except the ones that depend on how the visitor played and
 // the level data below (SILVER_ROWS, CLASS_PARTS, NIGHT_CHOICES,
-// SWITCH_ROUNDS). The starfield behind it all is the home page's
+// SWITCH_ROUNDS). The painted panorama behind it all is the home page's
 // (../background.js).
 // =============================================================================
 

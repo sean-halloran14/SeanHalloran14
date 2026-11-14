@@ -1,8 +1,8 @@
 # Portfolio site
 
 An interactive, trippy-cartoon portfolio: a glowing orb with planets circling it, in an endless
-landscape of floating islands (brown mountains, green forests, blue rivers, deep blue sky) that you
-explore by flying the orb (hold the mouse or a finger down, arrow keys/WASD, or the wheel). Each
+painted panorama (banded sunset, night and dawn skies, inked snowy mountain ranges, pine forests, a
+glowing river and a mirror lake) that you explore by flying the orb (hold the mouse or a finger down, arrow keys/WASD, or the wheel). Each
 planet opens one item (a project, About, or Contact). `BG.zoom` in `background.js` (0.6) sets how zoomed out everything is. The orb roams freely round the screen and the view only pans when it nears an edge; the SH. mark flies it
 home. No build step.
 
@@ -12,7 +12,7 @@ Files: `index.html`, `styles.css`, `background.js`, `sun.js`, `hunt.js`, `flight
 
 - `projects/nightly-pipeline.html` - the written case study of the nightly pipeline project.
 - `projects/pipeline-game.html` ("Run the night") - the same project as a six-level mini-game on the
-  home page's starfield (it loads `../background.js` and `../styles.css`). Each level teaches one part
+  home page's painted panorama (it loads `../background.js` and `../styles.css`). Each level teaches one part
   and ends with a "What I did" card: the tangle of 46 jobs, catching downloads into bronze (canvas),
   cleaning raw fields into silver, writing a report class, a night run with a failed download and
   the next night's gap-filling, and spotting differences between old and new tables. The code is in
@@ -43,18 +43,23 @@ names or data.
 
 ## How it works
 
-- `background.js` draws the background (settings in `BG`): an endless starry void, made from the
-  world position. Star streams wind through it - glowing tunnels with dark depths, stars streaming
-  along them - following evenly spaced levels of one smooth field, so they never cross and keep a
-  steady width. Gardens of glowing green crystals line their banks, and belts of brown asteroids
-  (with dust and pebbles) run along the spines between streams; each keeps a buffer from the
-  others, so nothing overlaps. Fine light rays drift over everything (`shimmer`). Shapes and
-  amounts: `riverSize`, `riverWidth`, `riverSpacing`, `riverFlow` (the streams), `beltSize`,
-  `beltLevel`, `asteroidSpacing`, `gardenSize`, `gardenShare`, `crystalSpacing`, `cloudShare`
-  (void curtains) and so on.
+- `background.js` draws the background (settings in `BG`): a side-on painted panorama in the style
+  of bold, ink-outlined landscape paintings, made from the world position so it never ends. From the
+  top down: endless deep space, a banded sky with brush-stroke streaks, a big swirl and stars, two
+  mountain ranges (flat lit and shaded faces running diagonally off each peak, snow caps with rock
+  streaks, ink lines), forested hills of pines with a river winding down from the valley, a rocky
+  shore, and a lake that mirrors the mountains and sky (so flying down never runs out either).
+  Along it, scenes take turns every `sceneWidth` px: a sunset with a sunburst, a moonlit night with
+  pink alpenglow, or a pastel dawn, each with its sun or moon over a valley notch. The first scene is
+  always a sunset. Layout: `horizon`, `shoreLevel`, `sceneWidth`, `valleyWidth`, `farHeight`,
+  `midHeight`, `hillHeight`, `treeSpacing`; colours: `paintColours`.
+  High in the sky, swirling ribbons with stars streaming along them wind along evenly spaced levels
+  of one smooth field, so they never cross (`riverSize`, `riverWidth`, `riverSpacing`, `riverFlow`);
+  they taper out above the peaks (`ribbonCeiling`, `ribbonFade`) and are the currents in `extras.js`.
   The world gets a new layout with each `?swirls=` number. On top: the outlined rings and streamers
-  and the breathing, melting warp, and the landscape flows and shimmers like the northern lights
-  (the `aurora...` settings). Without WebGL a still tie-dye picture shows instead.
+  and the breathing, melting warp; the sky sways and brightens like the northern lights (the
+  `aurora...` settings) and glints drift over the water (`waterGlints`). Without WebGL a still
+  tie-dye picture shows instead.
   - The page is only a window on the world: when the orb nears its edge, `flight.js` slides the
     world back underneath (`setBackgroundShift` and friends) and scrolls to match, and only the
     newly uncovered strip of landscape is drawn.
@@ -71,8 +76,8 @@ names or data.
   (or clicking it) catches it (it flies home into orbit and its panel opens). A "Contents" button (top left) lists the planets found so far, and clicking one opens its panel. "Show me everything" skips the hunt, and once all
   are found it becomes "Hide them again". Progress is saved in the visitor's browser. Settings are in
   `HUNT` (how far planets drift, how close a click must be, `gravityReach`, flight time, and so on).
-- `extras.js` adds hazards and power-ups (settings in `EXTRAS`): star streams carry the orb along, keep it
-  near their middle unless you're steering (`centring`, `wobble`), and make flying faster; black holes pull it in and fling it back out if they swallow it (never near the
+- `extras.js` adds hazards and power-ups (settings in `EXTRAS`): the sky ribbons carry the orb along, keep it
+  near their middle unless you're steering (`centring`, `wobble`), and make flying faster; black holes (only in the open sky above the peaks) pull it in and fling it back out if they swallow it (never near the
   start or a hidden planet); stardust specks fill the meter under the radar, and Space or the Boost
   button spends some for a burst of speed. All of it pauses while a panel is open.
 - `flight.js` moves the orb instead of scrolling: hold to fly towards the pointer, a quick click

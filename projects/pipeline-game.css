@@ -1,7 +1,7 @@
 /* "Run the night" (pipeline-game.html). Loads after ../styles.css, which gives
    the palette, the SH. mark and the top links. The home page is one big world
    that never scrolls; this page is an ordinary scrolling page with the same
-   starfield fixed behind it. */
+   painted panorama fixed behind it. */
 
 html { overflow: auto; }
 html, body { scrollbar-width: auto; }
