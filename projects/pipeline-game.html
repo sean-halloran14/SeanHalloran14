@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run the Night | Sean Halloran</title>
+  <meta name="description" content="Play through one night of a data pipeline I built: download, clean, combine, check itself and repair its own gaps.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <!-- The home page's palette and pieces (mark, top links), then this page's own styles. -->
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="pipeline-game.css">
+</head>
+<body class="game-page">
+  <!-- The nightly pipeline project as a six-level mini-game. pipeline-game.js
+       runs it; ../background.js paints the home page's starfield behind it.
+       The facts in the "What I did" cards match nightly-pipeline.html. -->
+
+  <a class="mark" href="../index.html" aria-label="Sean Halloran, data engineer. Back to the planets">SH<span>.</span></a>
+  <nav class="top-bar" aria-label="Shortcuts">
+    <a class="top-link" href="../index.html">Back to the planets</a>
+    <a class="top-link plain-button" href="nightly-pipeline.html">Just show me the write-up</a>
+  </nav>
+
+  <!-- Background (background.js). The page is the screen; it doesn't scroll. -->
+  <div class="page">
+    <canvas class="page-bg page-bg-base" aria-hidden="true"></canvas>
+    <canvas class="page-bg page-bg-swirls" aria-hidden="true"></canvas>
+    <div class="stage" data-bg="--brown-deep --navy --forest-deep --navy"></div>
+  </div>
+
+  <main class="game">
+    <header class="game-intro">
+      <p class="game-tag">Pipelines &middot; Play the project</p>
+      <h1>Run the night</h1>
+      <p class="game-lead">A company's sales reporting used to run on 46 separate jobs. I rebuilt it as one Python pipeline that runs every night, checks itself and fixes its own gaps. Play through one night of it.</p>
+    </header>
+
+    <ol class="route" aria-label="Levels">
+      <li><button class="route-stop" type="button" data-index="1" disabled><span class="route-dot">1</span><span class="route-name">The tangle</span></button></li>
+      <li><button class="route-stop" type="button" data-index="2" disabled><span class="route-dot">2</span><span class="route-name">Bronze</span></button></li>
+      <li><button class="route-stop" type="button" data-index="3" disabled><span class="route-dot">3</span><span class="route-name">Silver</span></button></li>
+      <li><button class="route-stop" type="button" data-index="4" disabled><span class="route-dot">4</span><span class="route-name">Classes</span></button></li>
+      <li><button class="route-stop" type="button" data-index="5" disabled><span class="route-dot">5</span><span class="route-name">The night</span></button></li>
+      <li><button class="route-stop" type="button" data-index="6" disabled><span class="route-dot">6</span><span class="route-name">Switch over</span></button></li>
+    </ol>
+
+    <!-- ===================================================== Start -->
+    <section class="level" data-level="start" aria-labelledby="start-title">
+      <div class="card play-card">
+        <h2 id="start-title" tabindex="-1">You're the pipeline tonight</h2>
+        <p>Six short levels, a minute or two each. Every one is something I built, and each ends with a card on how it really works.</p>
+        <ol class="start-list">
+          <li><b>The tangle.</b> Why the old setup had to go.</li>
+          <li><b>Bronze.</b> Catch the night's downloads and keep them untouched.</li>
+          <li><b>Silver.</b> Clean messy raw rows into tidy tables.</li>
+          <li><b>Classes.</b> Add a new report the object-oriented way.</li>
+          <li><b>The night.</b> Run it, handle a failure, read the diagnostics.</li>
+          <li><b>Switch over.</b> Prove the new tables match the old ones.</li>
+        </ol>
+        <div class="play-actions">
+          <button class="btn btn-go" type="button" data-next>Start the night</button>
+          <a class="btn btn-quiet" href="nightly-pipeline.html">Short on time? Read the write-up</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================== 1. The tangle -->
+    <section class="level" data-level="tangle" hidden aria-labelledby="tangle-title">
+      <div class="card play-card">
+        <p class="level-step">Level 1 of 6 &middot; The problem</p>
+        <h2 id="tangle-title" tabindex="-1">The tangle</h2>
+        <p class="level-brief">It's 7 a.m. Did last night's data load? Every report has its own scheduled jobs, and each keeps its own run history. <b>Click jobs to check them.</b></p>
+        <div class="tangle-field"></div>
+        <p class="play-status tangle-status" aria-live="polite"></p>
+        <div class="play-actions">
+          <button class="btn btn-go tangle-merge" type="button" hidden>Merge them into one nightly run</button>
+        </div>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">46 schedules became one</h3>
+        <p>The original workspace grew one report at a time: each new report got its own chain (a pipeline to download it, often a dataflow to clean it, a notebook to reshape it, and a separate "historical" copy). Altogether that was 77 pipelines, about 30 dataflows and 43 notebooks on 46 schedules, using about 6 hours of run time a day on capacity shared with every other team.</p>
+        <p>I replaced all of it with a single object-oriented Python pipeline in Microsoft Fabric that runs once a night and logs everything to one place.</p>
+        <button class="btn btn-go" type="button" data-next>Next: Bronze</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== 2. Bronze -->
+    <section class="level" data-level="bronze" hidden aria-labelledby="bronze-title">
+      <div class="card play-card">
+        <p class="level-step">Level 2 of 6 &middot; Bronze: download</p>
+        <h2 id="bronze-title" tabindex="-1">Catch the downloads</h2>
+        <p class="level-brief">The vendor's API is sending tonight's reports. <b>Move the orb to catch them</b> (mouse, finger or arrow keys) and they're saved to bronze exactly as they arrived. Grey ones came back empty. Catching one logs a warning, but it doesn't count.</p>
+        <div class="bronze-wrap">
+          <canvas class="bronze-canvas" role="img" aria-label="Catch game: downloads fall from the API; move the orb to catch them"></canvas>
+          <p class="bronze-score" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">Keep the raw copy first</h3>
+        <p class="bronze-result lesson-result"></p>
+        <p>Each night the pipeline fetches 56 reports from the vendor's REST API and saves each response untouched as JSON. That's the <b>bronze</b> layer. Because the raw copy is kept, any table can be rebuilt without asking the vendor again. Every dated report back to January 2024 was backfilled the same way.</p>
+        <p>Downloads that are missed don't need fixing by hand: the next night looks for missing days and fetches them (you'll see this in level 5). Empty downloads are flagged as warnings in the run log.</p>
+        <button class="btn btn-go" type="button" data-next>Next: Silver</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== 3. Silver -->
+    <section class="level" data-level="silver" hidden aria-labelledby="silver-title">
+      <div class="card play-card">
+        <p class="level-step">Level 3 of 6 &middot; Silver: clean</p>
+        <h2 id="silver-title" tabindex="-1">Clean the rows</h2>
+        <p class="level-brief">Raw reports are messy. <b>Pick the right fix for each field</b> before it goes into a silver table.</p>
+        <p class="silver-count"></p>
+        <pre class="silver-raw"></pre>
+        <p class="silver-problem"></p>
+        <div class="choices silver-choices"></div>
+        <p class="why silver-why" aria-live="polite"></p>
+        <div class="play-actions">
+          <button class="btn btn-go silver-next" type="button" hidden>Next row</button>
+        </div>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">58 tidy, typed tables</h3>
+        <p>The <b>silver</b> layer turns each raw report into a typed Delta table, 58 of them, with consistent names, real dates and exact decimal money, plus lineage columns saying which file and day each row came from. The cleaning is written in Polars and DuckDB SQL and saved with delta-rs.</p>
+        <button class="btn btn-go" type="button" data-next>Next: Classes</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== 4. Classes -->
+    <section class="level" data-level="classes" hidden aria-labelledby="classes-title">
+      <div class="card play-card">
+        <p class="level-step">Level 4 of 6 &middot; Object-oriented design</p>
+        <h2 id="classes-title" tabindex="-1">Add a new report</h2>
+        <p class="level-brief">Operations wants a new report: <b>office coffee deliveries</b>. Every report class inherits from <code>Endpoint</code>. <b>Pick only the parts you'd have to write yourself</b>, then write the class.</p>
+        <div class="classes-grid">
+          <figure class="code-card">
+            <figcaption>The base class (simplified)</figcaption>
+<pre><code><span class="code-key">class</span> Endpoint:
+    <span class="code-note"># every report gets these for free</span>
+    <span class="code-key">def</span> get_report(self, day): ...
+        <span class="code-note"># download, with paging</span>
+    <span class="code-key">def</span> save_raw_json(self, day): ...
+        <span class="code-note"># bronze, untouched</span>
+    <span class="code-key">def</span> get_missing_days(self): ...
+        <span class="code-note"># history and gap-filling</span>
+    <span class="code-key">def</span> log_run(self, result): ...
+        <span class="code-note"># rows, freshness, warnings</span></code></pre>
+          </figure>
+          <div>
+            <p class="classes-ask">What does <code>CoffeeDeliveries</code> need?</p>
+            <div class="chips classes-chips"></div>
+            <div class="play-actions">
+              <button class="btn btn-go classes-write" type="button">Write the class</button>
+            </div>
+          </div>
+        </div>
+        <ul class="why-list classes-why" aria-live="polite"></ul>
+        <figure class="code-card classes-result" hidden>
+          <figcaption>Your new report: the whole thing</figcaption>
+<pre><code><span class="code-key">class</span> CoffeeDeliveries(Endpoint):
+    path = <span class="code-text">"reports/coffee-deliveries"</span>
+    columns = {
+        <span class="code-text">"delivered_on"</span>: <span class="code-text">"date"</span>,
+        <span class="code-text">"location"</span>: <span class="code-text">"text"</span>,
+        <span class="code-text">"cases"</span>: <span class="code-text">"integer"</span>,
+        <span class="code-text">"amount"</span>: <span class="code-text">"decimal(18,6)"</span>,
+    }
+
+NIGHTLY_REPORTS.append(CoffeeDeliveries())</code></pre>
+        </figure>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">One short class per report</h3>
+        <p>The pipeline is object-oriented: a <b>workspace</b> class for paths and settings, a class per API <b>report</b> and a class per <b>table</b>. Each inherits downloading, cleaning, history, checks and logging from its base class, so every report behaves the same way.</p>
+        <p>Adding a report means writing one short class and adding it to the nightly list, and every business rule is written once in one documented place instead of spread across pipeline settings, dataflow steps and notebooks.</p>
+        <button class="btn btn-go" type="button" data-next>Next: The night</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== 5. The night -->
+    <section class="level" data-level="night" hidden aria-labelledby="night-title">
+      <div class="card play-card">
+        <p class="level-step">Level 5 of 6 &middot; Orchestration and diagnostics</p>
+        <h2 id="night-title" tabindex="-1">Run the night</h2>
+        <p class="level-brief">One job works through every layer in order. <b>Start the run</b> and be ready to make a call if something goes wrong.</p>
+        <div class="night-board">
+          <p class="night-clock" aria-live="off">1:00 AM</p>
+          <ol class="night-stages">
+            <li class="night-stage" data-stage="gaps" hidden>
+              <span class="stage-name">Gap check</span>
+              <span class="stage-bar"><span class="stage-fill"></span></span>
+              <span class="stage-detail">waiting</span>
+            </li>
+            <li class="night-stage" data-stage="bronze">
+              <span class="stage-name">Bronze &middot; 56 reports</span>
+              <span class="stage-bar"><span class="stage-fill"></span></span>
+              <span class="stage-detail">waiting</span>
+            </li>
+            <li class="night-stage" data-stage="silver">
+              <span class="stage-name">Silver &middot; 58 tables</span>
+              <span class="stage-bar"><span class="stage-fill"></span></span>
+              <span class="stage-detail">waiting</span>
+            </li>
+            <li class="night-stage" data-stage="gold">
+              <span class="stage-name">Gold &middot; 15 tables</span>
+              <span class="stage-bar"><span class="stage-fill"></span></span>
+              <span class="stage-detail">waiting</span>
+            </li>
+            <li class="night-stage" data-stage="diagnostics">
+              <span class="stage-name">Diagnostics</span>
+              <span class="stage-bar"><span class="stage-fill"></span></span>
+              <span class="stage-detail">waiting</span>
+            </li>
+          </ol>
+        </div>
+        <div class="night-decision" hidden>
+          <p class="night-question"><b>The waste report's download failed.</b> The gold <i>Waste &amp; shrink</i> table is built from it. What should tonight's run do?</p>
+          <div class="choices night-choices"></div>
+          <p class="why night-why" aria-live="polite"></p>
+        </div>
+        <ul class="night-log" aria-live="polite"></ul>
+        <div class="play-actions">
+          <button class="btn btn-go night-start" type="button">Start tonight's run</button>
+          <button class="btn btn-go night-again" type="button" hidden>Run the next night</button>
+        </div>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">A pipeline that looks after itself</h3>
+        <ul class="lesson-list">
+          <li><b>Waits for complete inputs.</b> If a download fails, the tables that depend on it keep yesterday's data instead of being rebuilt from partial inputs.</li>
+          <li><b>Reports on itself.</b> Every run logs each report and table: what loaded, row counts, freshness, and warnings such as a sudden drop in rows. If anything fails, the whole run is marked failed so it can't be missed, and a Power BI diagnostics report shows it all.</li>
+          <li><b>Fills its own gaps.</b> Each night it looks back to January 2024 for any missing day or month and fetches up to 14 of them, so a missed night is fixed by the next run.</li>
+        </ul>
+        <p class="lesson-note">The failure in this level is made up so you can see what would happen. In real life every nightly run has succeeded since go-live, finishing in about 13 minutes.</p>
+        <button class="btn btn-go" type="button" data-next>Next: Switch over</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== 6. Switch over -->
+    <section class="level" data-level="switch" hidden aria-labelledby="switch-title">
+      <div class="card play-card">
+        <p class="level-step">Level 6 of 6 &middot; Moving over safely</p>
+        <h2 id="switch-title" tabindex="-1">Spot the difference</h2>
+        <p class="level-brief">Before any report moves to the new tables, they're compared with the old workspace value by value. <b>Click the value in the new table that doesn't match.</b></p>
+        <p class="switch-count"></p>
+        <div class="switch-tables">
+          <figure class="switch-table">
+            <figcaption>Old workspace</figcaption>
+            <table class="switch-old"></table>
+          </figure>
+          <figure class="switch-table">
+            <figcaption>New pipeline</figcaption>
+            <table class="switch-new"></table>
+          </figure>
+        </div>
+        <p class="why switch-why" aria-live="polite"></p>
+        <div class="play-actions">
+          <button class="btn btn-go switch-next" type="button" hidden>Next comparison</button>
+        </div>
+      </div>
+      <div class="card lesson" hidden>
+        <p class="lesson-tag">What I did</p>
+        <h3 tabindex="-1">Same rules, new home</h3>
+        <ul class="lesson-list">
+          <li><b>Built in a test copy.</b> The old workspace kept running while I developed against separate dev tables, so nobody's reports broke along the way.</li>
+          <li><b>Checked value by value.</b> Comparison notebooks matched every new table against the original, and each difference was traced to its cause before any report switched over.</li>
+          <li><b>Same rules kept.</b> The business rules the original had established were kept, then gathered into one documented place.</li>
+        </ul>
+        <p class="lesson-note">The rows in this level are example values.</p>
+        <button class="btn btn-go" type="button" data-next>Finish the night</button>
+      </div>
+      <button class="skip-level" type="button">Skip this level</button>
+    </section>
+
+    <!-- ===================================================== Finale -->
+    <section class="level" data-level="finale" hidden aria-labelledby="finale-title">
+      <div class="card play-card finale">
+        <p class="level-step">Morning</p>
+        <h2 id="finale-title" tabindex="-1">You ran the night</h2>
+        <p>That's the whole project: download it raw, clean it, combine it, check it, and fix the gaps without anyone being paged.</p>
+        <div class="stats">
+          <div class="stat"><strong>46 &rarr; 1</strong><span>scheduled jobs replaced by one nightly run</span></div>
+          <div class="stat"><strong>~6 h &rarr; 13 min</strong><span>daily run time on the shared capacity</span></div>
+          <div class="stat"><strong>150 &rarr; 7</strong><span>pipelines, dataflows and notebooks down to 7 core notebooks</span></div>
+          <div class="stat"><strong>5 &rarr; 1</strong><span>lakehouses and warehouses down to one lakehouse</span></div>
+        </div>
+        <ul class="tools">
+          <li>Python</li><li>Polars</li><li>DuckDB SQL</li><li>Delta Lake (delta-rs)</li><li>Microsoft Fabric</li><li>Power BI</li><li>REST APIs</li><li>Object-oriented design</li><li>Medallion architecture</li>
+        </ul>
+        <div class="play-actions">
+          <a class="btn btn-go" href="nightly-pipeline.html">Read the full write-up</a>
+          <a class="btn btn-quiet" href="../index.html">Back to the planets</a>
+          <button class="btn btn-quiet game-replay" type="button">Play again</button>
+        </div>
+        <p class="lesson-note">Company and system names are left out; figures are from the project's own documentation.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="../background.js"></script>
+  <script src="pipeline-game.js"></script>
+</body>
+</html>

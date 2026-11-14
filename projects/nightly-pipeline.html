@@ -118,6 +118,19 @@
       font: 500 0.8rem "JetBrains Mono", monospace;
     }
     .note { color: var(--tan); font-size: 0.9rem; opacity: 0.8; }
+    .play-link {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 8px 16px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 999px;
+      background: var(--sunset);
+      color: var(--cream);
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 3px 3px 0 var(--brown-deep);
+    }
+    .play-link:hover { background: var(--sun-glow); color: var(--ink); }
   </style>
 </head>
 <body>
@@ -126,6 +139,7 @@
     <p class="tag">Pipelines &middot; Data engineering</p>
     <h1>One nightly pipeline for a company's sales data</h1>
     <p class="lead">A vending, micro-market and office-coffee company's reporting depended on dozens of separately scheduled jobs that had grown one report at a time. I rebuilt it as a single object-oriented Python pipeline in Microsoft Fabric that runs once a night, checks itself, and repairs its own gaps.</p>
+    <a class="play-link" href="pipeline-game.html">Rather play it? Run the night &rarr;</a>
 
     <div class="stats">
       <div class="stat"><strong>46 &rarr; 1</strong><span>scheduled jobs replaced by one nightly run</span></div>

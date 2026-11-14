@@ -6,7 +6,20 @@ explore by flying the orb (hold the mouse or a finger down, arrow keys/WASD, or 
 planet opens one item (a project, About, or Contact). `BG.zoom` in `background.js` (0.6) sets how zoomed out everything is. The orb roams freely round the screen and the view only pans when it nears an edge; the SH. mark flies it
 home. No build step.
 
-Files: `index.html`, `styles.css`, `background.js`, `sun.js`, `hunt.js`, `flight.js`, `extras.js`, `pointer-effects.js`.
+Files: `index.html`, `styles.css`, `background.js`, `sun.js`, `hunt.js`, `flight.js`, `extras.js`, `plain-view.js`, `pointer-effects.js`, and the project pages in `projects/`.
+
+## Project pages
+
+- `projects/nightly-pipeline.html` - the written case study of the nightly pipeline project.
+- `projects/pipeline-game.html` ("Run the night") - the same project as a six-level mini-game on the
+  home page's starfield (it loads `../background.js` and `../styles.css`). Each level teaches one part
+  and ends with a "What I did" card: the tangle of 46 jobs, catching downloads into bronze (canvas),
+  cleaning raw fields into silver, writing a report class, a night run with a failed download and
+  the next night's gap-filling, and spotting differences between old and new tables. The code is in
+  `pipeline-game.js` (settings in `GAME`, level data in `SILVER_ROWS`, `CLASS_PARTS`, `NIGHT_CHOICES`
+  and `SWITCH_ROUNDS`) and the look in `pipeline-game.css`. Every level can be skipped, and the
+  route at the top jumps back to any level already reached. Keep its facts in step with
+  `nightly-pipeline.html`.
 
 ## Fill in your content
 
