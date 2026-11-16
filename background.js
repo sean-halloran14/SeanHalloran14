@@ -237,6 +237,7 @@ function setZoomedSettings() {
 }
 
 setZoomedSettings();
+const BG_START_ZOOM = BG.zoom;  // zoom.js zooms out from here and back
 
 const MAX_RIPPLES = 4;     // must match the shader's array size; oldest is replaced
 
@@ -1232,7 +1233,7 @@ uniform vec4 u_land;          // ribbon size (px), ribbon half-width (px), ribbo
 uniform float u_riverSpacing; // field units between neighbouring ribbons
 uniform vec4 u_layout;        // horizon (y px), shore (y px), scene width (px), valley width (px)
 uniform vec4 u_ranges;        // far range height, near range height, hill height, tree spacing (px)
-uniform vec3 u_probe;         // probe mode (extras.js): landscape x, y, step (0 = off)
+uniform vec3 u_probe;         // river map mode (getRiverProbe): landscape x, y of the corner, px per pixel (0 = off)
 
 #define SPACE u_paint[0]
 #define INDIGO u_paint[1]
@@ -1848,18 +1849,14 @@ vec4 getLand(vec2 w) {
 
 void main() {
   if (u_probe.z > 0.0) {
-    // Probe mode: three pixels report the ribbon field at a point and a step
-    // to its right and below, so extras.js can tell whether the orb is in a
-    // ribbon and which way it flows.
-    vec2 q = u_probe.xy;
-    if (gl_FragCoord.x > 1.0) {
-      q.x += u_probe.z;
-    }
-    if (gl_FragCoord.x > 2.0) {
-      q = u_probe.xy + vec2(0.0, u_probe.z);
-    }
-    vec2 river = getRiverField(q);
-    gl_FragColor = vec4(floor(river.x * 255.0) / 255.0, fract(river.x * 255.0), river.y / 400.0, 1.0);
+    // River map mode: each pixel reports the ribbon field's raw value (in
+    // two bytes) and the ribbon's half-width, on a grid round the orb, so
+    // extras.js can tell whether the orb is in a ribbon and which way it
+    // flows without asking the GPU every frame (getRiverProbe).
+    vec2 q = u_probe.xy + floor(gl_FragCoord.xy) * u_probe.z;
+    float v = clamp(getFbm(q / u_land.x + u_seed + 13.0), 0.0, 0.99998);
+    float width = getRiverField(q).y;
+    gl_FragColor = vec4(floor(v * 255.0) / 255.0, fract(v * 255.0), width / 400.0, 1.0);
     return;
   }
   // Rows run top to bottom here, like the 2D canvas the main shader expects.
@@ -2013,17 +2010,84 @@ function setTerrainRenderer(gl) {
   swirlState.copyProgram = copy;
   swirlState.terrainTextures = [getTerrainTexture(gl), getTerrainTexture(gl)];
   swirlState.framebuffer = gl.createFramebuffer();
-  // A 3 x 1 target for probing the river field (getRiverProbe).
+  // A small target for the river map round the orb (getRiverProbe).
   swirlState.probeTexture = getTerrainTexture(gl);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 3, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, RIVER_MAP.size, RIVER_MAP.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   return true;
 }
 
+// The river field is read back from the GPU as a small map round the orb,
+// only when the orb nears the edge of the last one. Reading from the GPU
+// makes the page wait for everything the GPU is still drawing, which on
+// phones took long enough to make the view jump, so it shouldn't happen
+// every few frames.
+const RIVER_MAP = {
+  size: 160,               // pixels each way
+  spacing: 32,             // landscape px between pixels (so ~5000 px across; wider spacing blurs the ribbons' edges)
+  margin: 0.25,            // redraw once the orb is this share of the map from its edge
+};
+
+const riverMap = {
+  ready: false,
+  x: 0,                    // landscape px of pixel (0, 0)
+  y: 0,
+  values: new Float32Array(RIVER_MAP.size * RIVER_MAP.size),
+  widths: new Float32Array(RIVER_MAP.size * RIVER_MAP.size),
+};
+
+function setRiverMap(x, y) {
+  // Reads the ribbon field on a grid centred on landscape point (x, y).
+  const gl = swirlState.gl;
+  const size = RIVER_MAP.size;
+  const half = (size - 1) / 2 * RIVER_MAP.spacing;
+  riverMap.x = Math.round(x - half);
+  riverMap.y = Math.round(y - half);
+  gl.useProgram(swirlState.terrainProgram);
+  const probeLocation = gl.getUniformLocation(swirlState.terrainProgram, "u_probe");
+  gl.uniform3f(probeLocation, riverMap.x, riverMap.y, RIVER_MAP.spacing);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, swirlState.framebuffer);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, swirlState.probeTexture, 0);
+  gl.viewport(0, 0, size, size);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  const pixels = new Uint8Array(size * size * 4);
+  gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  gl.uniform3f(probeLocation, 0, 0, 0);
+  setTerrainDone();
+  for (let i = 0; i < size * size; i++) {
+    riverMap.values[i] = (pixels[i * 4] + pixels[i * 4 + 1] / 255) / 255;
+    riverMap.widths[i] = pixels[i * 4 + 2] / 255 * 400;
+  }
+  riverMap.ready = true;
+}
+
+function getRiverMapSample(list, x, y) {
+  // A value from the map at landscape point (x, y), blended between pixels.
+  const size = RIVER_MAP.size;
+  const fx = Math.min(size - 1.001, Math.max(0, (x - riverMap.x) / RIVER_MAP.spacing));
+  const fy = Math.min(size - 1.001, Math.max(0, (y - riverMap.y) / RIVER_MAP.spacing));
+  const i = Math.floor(fx);
+  const j = Math.floor(fy);
+  const u = fx - i;
+  const v = fy - j;
+  const a = list[j * size + i];
+  const b = list[j * size + i + 1];
+  const c = list[(j + 1) * size + i];
+  const d = list[(j + 1) * size + i + 1];
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+
+function getRiverFolded(value) {
+  // The field folded so the nearest ribbon sits at 0.5 (as in the shader).
+  const spacing = BG.riverSpacing;
+  const t = (value - 0.5) / spacing + 0.5;
+  return 0.5 + (t - Math.floor(t) - 0.5) * spacing;
+}
+
 function getRiverProbe(pageX, pageY) {
-  // Reads the river field at a page point from the landscape shader itself,
-  // so it matches what's drawn. Returns null without WebGL, otherwise
-  // { inRiver, strength (0-1, strongest mid-stream), flowX, flowY (unit),
-  //   acrossX, acrossY (unit), offset (page px from the middle) }.
+  // The river field at a page point, from the landscape shader itself (via
+  // the river map), so it matches what's drawn. Returns null without WebGL,
+  // otherwise { inRiver, strength (0-1, strongest mid-stream), flowX, flowY
+  // (unit), acrossX, acrossY (unit), offset (page px from the middle) }.
   const gl = swirlState.gl;
   if (!gl || !swirlState.ready) {
     return null;
@@ -2031,24 +2095,18 @@ function getRiverProbe(pageX, pageY) {
   const step = 30;
   const x = (swirlState.origin.x + pageX) / BG.zoom;
   const y = (swirlState.origin.y + pageY) / BG.zoom;
-  gl.useProgram(swirlState.terrainProgram);
-  const probeLocation = gl.getUniformLocation(swirlState.terrainProgram, "u_probe");
-  gl.uniform3f(probeLocation, x, y, step);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, swirlState.framebuffer);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, swirlState.probeTexture, 0);
-  gl.viewport(0, 0, 3, 1);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-  const pixels = new Uint8Array(12);
-  gl.readPixels(0, 0, 3, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-  gl.uniform3f(probeLocation, 0, 0, 0);
-  setTerrainDone();
-
-  const values = [];
-  for (let i = 0; i < 3; i++) {
-    values.push((pixels[i * 4] + pixels[i * 4 + 1] / 255) / 255);
+  const extent = (RIVER_MAP.size - 1) * RIVER_MAP.spacing;
+  const edge = extent * RIVER_MAP.margin;
+  if (!riverMap.ready || x < riverMap.x + edge || y < riverMap.y + edge || x > riverMap.x + extent - edge || y > riverMap.y + extent - edge) {
+    setRiverMap(x, y);
   }
+  const values = [
+    getRiverFolded(getRiverMapSample(riverMap.values, x, y)),
+    getRiverFolded(getRiverMapSample(riverMap.values, x + step, y)),
+    getRiverFolded(getRiverMapSample(riverMap.values, x, y + step)),
+  ];
   // Distances in landscape px: the field's value over its slope.
-  const width = pixels[2] / 255 * 400;
+  const width = getRiverMapSample(riverMap.widths, x, y);
   const slopeX = values[1] - values[0];
   const slopeY = values[2] - values[0];
   const slope = Math.hypot(slopeX, slopeY);
@@ -2236,6 +2294,39 @@ function setBackgroundShift(dx, dy) {
     setWorldUniform();
   }
   setSwirlFrame(getSeconds());
+}
+
+function setBackgroundZoom(zoom) {
+  // Changes BG.zoom while the page is running (zoom.js). The whole world
+  // scales around the orb: the landscape under it stays put, everything else
+  // in world px moves in or out by the same factor. Returns that factor, so
+  // sun.js, hunt.js and extras.js can scale their own world px to match.
+  const factor = zoom / BG.zoom;
+  if (!isFinite(factor) || Math.abs(factor - 1) < 0.000001) {
+    return 1;
+  }
+  for (const name of ZOOMED_SETTINGS) {
+    BG[name] = BG[name] * factor;
+  }
+  BG.zoom = zoom;
+  setWorldOriginStart();
+  const orb = getCentrePagePoint();
+  swirlState.origin.x = (swirlState.origin.x + orb.x) * factor - orb.x;
+  swirlState.origin.y = (swirlState.origin.y + orb.y) * factor - orb.y;
+  const centre = swirlState.centre;
+  for (const ring of swirlState.rings) {
+    ring.x = centre.x + (ring.x - centre.x) * factor;
+    ring.y = centre.y + (ring.y - centre.y) * factor;
+  }
+  if (!swirlState.ready) {
+    return factor;
+  }
+  if (swirlState.gl) {
+    setTerrain();
+    setSwirlUniforms();
+  }
+  setSwirlFrame(getSeconds());
+  return factor;
 }
 
 function setWorldUniform() {

@@ -202,7 +202,7 @@ function setWildPlanets() {
 }
 
 function setWildCanvasSizes() {
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(2, window.devicePixelRatio || 1);   // sharper than 2x costs a lot on phones for little gain
   for (let i = 0; i < huntState.wild.length; i++) {
     const wild = huntState.wild[i];
     if (!wild) {
@@ -216,6 +216,17 @@ function setWildCanvasSizes() {
     wild.canvas.style.height = wild.boxSize + "px";
     wild.context.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
+}
+
+function setHuntZoom(factor) {
+  // Used by zoom.js: the world scaled around world (0, 0), so the hiding
+  // spots move with it, and the planets are redrawn at the new size.
+  for (const wild of huntState.wild) {
+    if (wild) {
+      wild.spot = { x: wild.spot.x * factor, y: wild.spot.y * factor };
+    }
+  }
+  setWildCanvasSizes();
 }
 
 function getWildSize(index) {
@@ -494,7 +505,7 @@ function setRadarFrame(seconds) {
   if (size < 10) {
     return;   // hidden (the plain view)
   }
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(2, window.devicePixelRatio || 1);   // sharper than 2x costs a lot on phones for little gain
   if (radarCanvas.width !== Math.round(size * ratio)) {
     radarCanvas.width = Math.round(size * ratio);
     radarCanvas.height = Math.round(size * ratio);
@@ -606,7 +617,7 @@ function setConstellationDrawn() {
   if (width === 0) {
     return;   // the panel is closed; drawn when it opens
   }
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(2, window.devicePixelRatio || 1);   // sharper than 2x costs a lot on phones for little gain
   constellationCanvas.width = Math.round(width * ratio);
   constellationCanvas.height = Math.round(height * ratio);
   const context = constellationCanvas.getContext("2d");

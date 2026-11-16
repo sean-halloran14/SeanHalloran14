@@ -157,6 +157,12 @@
     <button class="joystick-swap" type="button" tabindex="-1">&#8644;</button>
   </div>
 
+  <!-- Zoom out to see more of the painted world (zoom.js). -->
+  <div class="zoom" role="group" aria-label="Zoom">
+    <button class="zoom-in" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
+    <button class="zoom-out" type="button" aria-label="Zoom out" title="Zoom out (&minus;)">&minus;</button>
+  </div>
+
   <!-- Cursor trail and click ripples; drawn by pointer-effects.js. -->
   <canvas class="pointer-effects" aria-hidden="true"></canvas>
 
@@ -166,6 +172,7 @@
   <script src="flight.js"></script>
   <script src="joystick.js"></script>
   <script src="extras.js"></script>
+  <script src="zoom.js"></script>
   <script src="plain-view.js"></script>
   <script src="pointer-effects.js"></script>
 </body>

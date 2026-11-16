@@ -245,7 +245,7 @@ function setSunScale() {
   const reach = Math.max(outer + 30, SUN.coreRadius * SUN.glowRadius);
   sunState.boxSize = Math.ceil(2 * reach * sunState.scale);
 
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(2, window.devicePixelRatio || 1);   // sharper than 2x costs a lot on phones for little gain
   sunCanvas.width = Math.round(sunState.boxSize * ratio);
   sunCanvas.height = Math.round(sunState.boxSize * ratio);
   sunCanvas.style.width = sunState.boxSize + "px";

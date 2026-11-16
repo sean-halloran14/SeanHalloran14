@@ -662,6 +662,37 @@ body.is-flying { cursor: crosshair; user-select: none; }
   .radar-dial { width: 84px; height: 84px; }
 }
 
+/* ---------- Zoom buttons (zoom.js) ----------
+   Bottom left on a computer; on touch screens, just above the joystick. */
+.zoom {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  border: 3px solid var(--brown-deep);
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: 3px 3px 0 var(--brown-deep);
+  overflow: hidden;
+}
+.zoom button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 700 1.35rem/1 "Space Grotesk", sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.zoom button + button { border-top: 2px solid var(--brown-deep); }
+.zoom button:hover:not(:disabled) { background: var(--sun-glow); }
+.zoom button:disabled { opacity: 0.35; cursor: default; }
+.is-plain .zoom { display: none; }
+
 /* ---------- Thumb joystick (joystick.js) ----------
    Only on touch screens. It sits in the bottom corner under the thumb of the
    hand holding the phone (right by default; the small arrows button swaps it
@@ -727,6 +758,16 @@ body.is-flying { cursor: crosshair; user-select: none; }
   .is-stick-left .joystick-swap { left: auto; right: -14px; }
   .is-stick-left .radar { left: auto; right: calc(14px + env(safe-area-inset-right, 0px)); }
   .is-plain .joystick { display: none; }
+  /* Zoom sits above the stick, in reach of the same thumb. */
+  .zoom {
+    left: auto;
+    right: calc(32px + env(safe-area-inset-right, 0px));
+    bottom: calc(22px + 124px + 18px + env(safe-area-inset-bottom, 0px));
+    flex-direction: row;
+  }
+  .zoom button { width: 44px; height: 44px; }
+  .zoom button + button { border-top: 0; border-left: 2px solid var(--brown-deep); }
+  .is-stick-left .zoom { right: auto; left: calc(32px + env(safe-area-inset-left, 0px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

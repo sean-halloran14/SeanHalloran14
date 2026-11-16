@@ -86,7 +86,7 @@ function setAccentRgbs() {
 
 function setPointerCanvasSize() {
   // Matches the screen's pixel density so lines stay crisp.
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = Math.min(2, window.devicePixelRatio || 1);   // sharper than 2x costs a lot on phones for little gain
   pointerCanvas.width = Math.round(window.innerWidth * ratio);
   pointerCanvas.height = Math.round(window.innerHeight * ratio);
   pointerContext.setTransform(ratio, 0, 0, ratio, 0, 0);

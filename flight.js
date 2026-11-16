@@ -29,15 +29,19 @@ const FLIGHT = {
   maxSpeed: 1100,         // fastest the orb flies, px/s
   keySpeed: 520,          // flight speed with the keys, px/s
   stickSpeed: 820,        // flight speed with the joystick pushed all the way, px/s
+  touchSpeed: 0.55,       // on touch screens, holding and the joystick fly this much slower
   wheelScale: 0.9,        // orb px moved per wheel px
   edge: 60,               // the orb never gets closer than this to the page's edge, px
   recentreEdge: 0.3,      // when the view is within this many screens of the page's edge, the world slides back
   cameraEdge: 0.2,        // the view only moves once the orb is within this share of the screen's edge
   cameraEase: 6,          // how quickly the view catches up (per s)
+  maxStep: 1 / 30,        // a slow frame moves things at most this many seconds' worth,
+                          // so a hiccup (common on phones) never makes the view jump
 };
 
 const flightMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const flightPage = document.querySelector(".page");
+const flightTouch = window.matchMedia("(hover: none) and (pointer: coarse)");
 
 const flightState = {
   pointerId: null,        // the pointer being held, if any
@@ -84,6 +88,11 @@ function getSpeedFactor() {
     return getFlightSpeedFactor();
   }
   return 1;
+}
+
+function getTouchFactor() {
+  // Phone screens are small, so full speed whips the orb past things.
+  return flightTouch.matches ? FLIGHT.touchSpeed : 1;
 }
 
 function getOrbPagePoint() {
@@ -273,7 +282,7 @@ function setHoldFlight(elapsed) {
   if (distance < 1) {
     return;
   }
-  const speed = Math.min(FLIGHT.maxSpeed, distance * FLIGHT.speedPerPx) * getSpeedFactor();
+  const speed = Math.min(FLIGHT.maxSpeed, distance * FLIGHT.speedPerPx) * getSpeedFactor() * getTouchFactor();
   const step = Math.min(distance, speed * elapsed);
   setOrbMovedBy(dx / distance * step, dy / distance * step);
 }
@@ -344,7 +353,7 @@ function setStickFlight(elapsed) {
     return;
   }
   const length = Math.hypot(flightState.stickX, flightState.stickY);
-  const step = FLIGHT.stickSpeed * Math.pow(push, 1.5) * elapsed * getSpeedFactor();
+  const step = FLIGHT.stickSpeed * Math.pow(push, 1.5) * elapsed * getSpeedFactor() * getTouchFactor();
   setOrbMovedBy(flightState.stickX / length * step, flightState.stickY / length * step);
 }
 
@@ -418,7 +427,7 @@ function setCameraFrame(elapsed) {
 function setFlightFrame(now) {
   let elapsed = 0;
   if (flightState.lastFrame !== null) {
-    elapsed = Math.min(0.1, (now - flightState.lastFrame) / 1000);
+    elapsed = Math.min(FLIGHT.maxStep, (now - flightState.lastFrame) / 1000);
   }
   flightState.lastFrame = now;
   if (!getIsPlainView()) {
@@ -451,3 +460,30 @@ window.addEventListener("keyup", setKeyUp);
 window.addEventListener("wheel", setWheelFlight, { passive: false });
 window.addEventListener("blur", setFlightStop);
 requestAnimationFrame(setFlightFrame);
+
+// ---------- Frame-rate readout (add ?fps=1 to the address) ----------
+// Shows frames per second and the slowest frame of the last second, to
+// check smoothness on a phone.
+if (new URLSearchParams(window.location.search).get("fps") === "1") {
+  const readout = document.createElement("div");
+  readout.style.cssText = "position:fixed;left:8px;top:50%;z-index:99;padding:4px 8px;border-radius:6px;" +
+    "background:rgba(0,0,0,0.7);color:#fff;font:12px monospace;pointer-events:none";
+  document.body.appendChild(readout);
+  let frames = 0;
+  let slowest = 0;
+  let last = performance.now();
+  let since = last;
+  const setReadoutFrame = function (now) {
+    frames += 1;
+    slowest = Math.max(slowest, now - last);
+    last = now;
+    if (now - since >= 1000) {
+      readout.textContent = Math.round(frames * 1000 / (now - since)) + " fps · slowest " + Math.round(slowest) + " ms";
+      frames = 0;
+      slowest = 0;
+      since = now;
+    }
+    requestAnimationFrame(setReadoutFrame);
+  };
+  requestAnimationFrame(setReadoutFrame);
+}

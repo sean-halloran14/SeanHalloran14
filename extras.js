@@ -56,6 +56,13 @@ const EXTRAS = {
   boostPush: 700,           // a boost also pushes the orb this fast the way it was going, px/s
 };
 
+// World px settings above that scale with the zoom (zoom.js, setExtrasZoom),
+// so black holes and stardust stay in the same spots of the landscape.
+const EXTRAS_ZOOMED = [
+  "holeSpacing", "holeReach", "holeCore", "holeSize", "holeClearStart", "holeClearPlanet",
+  "flingDistance", "dustSpacing", "dustReach",
+];
+
 const extrasMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const stardustBox = document.querySelector(".stardust");
 const stardustFill = document.querySelector(".stardust-fill");
@@ -73,6 +80,7 @@ const extrasState = {
   headingX: 1,              // unit direction the orb was last going
   headingY: 0,
   startTime: performance.now(),
+  scale: 1,                 // drawing size, follows the zoom
 };
 
 // ---------- Helpers ----------
@@ -85,6 +93,13 @@ function getCellRandom(cellX, cellY, salt) {
   // A repeatable random generator for one grid square of the world.
   const seed = (Math.imul(cellX, 73856093) ^ Math.imul(cellY, 19349663) ^ Math.imul(swirlSeed + salt, 83492791)) | 0;
   return getSeededRandom(seed);
+}
+
+function setExtrasZoom(factor) {
+  for (const name of EXTRAS_ZOOMED) {
+    EXTRAS[name] = EXTRAS[name] * factor;
+  }
+  extrasState.scale = extrasState.scale * factor;
 }
 
 function getOrbWorld() {
@@ -226,14 +241,14 @@ function setBlackHolesDrawn(context, seconds) {
           context.lineTo(px, py);
         }
       }
-      context.lineWidth = 4;
+      context.lineWidth = 4 * extrasState.scale;
       context.strokeStyle = getRgba(colours[arm], 55);
       context.stroke();
     }
     // The bright edge of the core.
     context.beginPath();
     context.arc(x, y, EXTRAS.holeCore * 0.9, 0, Math.PI * 2);
-    context.lineWidth = 3;
+    context.lineWidth = 3 * extrasState.scale;
     context.strokeStyle = getRgba("--sun-glow", 70);
     context.stroke();
   }
@@ -302,7 +317,7 @@ function setStardustDrawn(context, seconds) {
   for (const speck of getStardustAround(centre, reach)) {
     const x = speck.x - origin.x + BG.margin;
     const y = speck.y - origin.y + BG.margin;
-    const size = 9 + 4 * Math.sin(seconds * 3 + speck.phase);
+    const size = (9 + 4 * Math.sin(seconds * 3 + speck.phase)) * extrasState.scale;
     context.beginPath();
     context.moveTo(x, y - size);
     context.quadraticCurveTo(x, y, x + size, y);
@@ -453,7 +468,7 @@ function setExtrasDrawn(context, seconds) {
 function setExtrasFrame(now) {
   let elapsed = 0;
   if (extrasState.lastFrame !== null) {
-    elapsed = Math.min(0.1, (now - extrasState.lastFrame) / 1000);
+    elapsed = Math.min(1 / 30, (now - extrasState.lastFrame) / 1000);   // a slow frame never jumps the orb far (as flight.js)
   }
   extrasState.lastFrame = now;
   if (!getIsPaused()) {
