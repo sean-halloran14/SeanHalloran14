@@ -9,6 +9,7 @@
 //   Click / tap      - a quick click on empty space dashes the orb there
 //                      (pointer-effects.js does that part).
 //   Keys             - arrow keys or WASD fly it.
+//   Joystick         - on touch screens, a thumb stick flies it (joystick.js).
 //   Wheel / trackpad - nudges it.
 //   SH. mark         - flies it home to the middle of the world.
 //
@@ -27,6 +28,7 @@ const FLIGHT = {
   speedPerPx: 2.2,        // flight speed per px between orb and pointer, px/s
   maxSpeed: 1100,         // fastest the orb flies, px/s
   keySpeed: 520,          // flight speed with the keys, px/s
+  stickSpeed: 820,        // flight speed with the joystick pushed all the way, px/s
   wheelScale: 0.9,        // orb px moved per wheel px
   edge: 60,               // the orb never gets closer than this to the page's edge, px
   recentreEdge: 0.3,      // when the view is within this many screens of the page's edge, the world slides back
@@ -47,6 +49,8 @@ const flightState = {
   isFlying: false,        // has the press turned into a flight?
   swallowClick: false,    // ignore the click that ends a flight
   keys: new Set(),        // direction keys held down
+  stickX: 0,              // the touch joystick (joystick.js), each -1..1
+  stickY: 0,
   lastFrame: null,        // time of the previous frame (ms)
   cameraSnap: true,       // jump the view to the orb next frame
   lastWheel: -1000,       // when the wheel last nudged the orb (ms)
@@ -68,7 +72,7 @@ const FLIGHT_KEYS = {
 function getIsSteering() {
   // Used by extras.js: is the visitor moving the orb themselves right now
   // (holding to fly, holding a key, or using the wheel)?
-  if (flightState.isFlying || flightState.keys.size > 0) {
+  if (flightState.isFlying || flightState.keys.size > 0 || flightState.stickX !== 0 || flightState.stickY !== 0) {
     return true;
   }
   return performance.now() - flightState.lastWheel < 400;
@@ -191,7 +195,7 @@ function getIsFlightBlocked(event) {
   if (event.button !== 0 || getIsPlainView()) {
     return true;
   }
-  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .radar, .contents")) {
+  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .radar, .contents, .joystick")) {
     return true;
   }
   if (typeof getIsOverPlanet === "function" && getIsOverPlanet(event.clientX, event.clientY)) {
@@ -327,6 +331,23 @@ function setKeyFlight(elapsed) {
   setOrbMovedBy(x / length * step, y / length * step);
 }
 
+function setFlightStick(x, y) {
+  // Used by joystick.js: how far the stick is pushed, each axis -1..1.
+  flightState.stickX = x;
+  flightState.stickY = y;
+}
+
+function setStickFlight(elapsed) {
+  // A gentle curve, so small pushes give fine control near planets.
+  const push = Math.min(1, Math.hypot(flightState.stickX, flightState.stickY));
+  if (push === 0 || (typeof getIsPanelOpen === "function" && getIsPanelOpen())) {
+    return;
+  }
+  const length = Math.hypot(flightState.stickX, flightState.stickY);
+  const step = FLIGHT.stickSpeed * Math.pow(push, 1.5) * elapsed * getSpeedFactor();
+  setOrbMovedBy(flightState.stickX / length * step, flightState.stickY / length * step);
+}
+
 function setWheelFlight(event) {
   // The wheel or trackpad nudges the orb (the panel still scrolls normally,
   // and Ctrl + wheel still zooms).
@@ -403,6 +424,7 @@ function setFlightFrame(now) {
   if (!getIsPlainView()) {
     setHoldFlight(elapsed);
     setKeyFlight(elapsed);
+    setStickFlight(elapsed);
     setWorldRecentred();
     setCameraFrame(elapsed);
   }
@@ -412,6 +434,8 @@ function setFlightFrame(now) {
 function setFlightStop() {
   // Lets go of everything (the window lost focus, say).
   flightState.keys.clear();
+  flightState.stickX = 0;
+  flightState.stickY = 0;
   flightState.pointerId = null;
   flightState.isFlying = false;
   document.body.classList.remove("is-flying");

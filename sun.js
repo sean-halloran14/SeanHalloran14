@@ -1494,7 +1494,7 @@ function getIsOnInterface(target) {
   if (!target || !target.closest) {
     return false;
   }
-  return target.closest("a, button, input, .planet-panel, .planet-label, .contents") !== null;
+  return target.closest("a, button, input, .planet-panel, .planet-label, .contents, .joystick") !== null;
 }
 
 function setLabelShown(index) {

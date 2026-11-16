@@ -38,7 +38,7 @@
   <!-- Points at the first hidden planet until it's caught (hunt.js). -->
   <p class="coach" hidden aria-hidden="true">
     <span class="hint-pointer">A hidden project! Hold the mouse on it to fly there (or use the arrow keys).</span>
-    <span class="hint-touch">A hidden project! Hold your finger on it to fly there.</span>
+    <span class="hint-touch">A hidden project! Steer to it with the stick (or hold your finger on it).</span>
   </p>
 
   <div class="page">
@@ -119,7 +119,7 @@
 
   <p class="hint" aria-hidden="true">
     <span class="hint-pointer">hold to fly the orb &middot; ride the sky ribbons &middot; space to boost &middot; avoid black holes</span>
-    <span class="hint-touch">hold to fly &middot; ride the sky ribbons &middot; avoid black holes</span>
+    <span class="hint-touch">drag the stick to fly &middot; ride the sky ribbons &middot; avoid black holes</span>
   </p>
 
   <!-- Small label next to a hovered or focused planet (sun.js fills it in). -->
@@ -150,6 +150,13 @@
   </aside>
   <p class="hunt-toast" hidden role="status">You found every project!</p>
 
+  <!-- Thumb joystick for flying on touch screens (joystick.js); hidden on
+       mouse and keyboard devices by styles.css. -->
+  <div class="joystick" aria-hidden="true">
+    <div class="joystick-base"><span class="joystick-knob"></span></div>
+    <button class="joystick-swap" type="button" tabindex="-1">&#8644;</button>
+  </div>
+
   <!-- Cursor trail and click ripples; drawn by pointer-effects.js. -->
   <canvas class="pointer-effects" aria-hidden="true"></canvas>
 
@@ -157,6 +164,7 @@
   <script src="sun.js"></script>
   <script src="hunt.js"></script>
   <script src="flight.js"></script>
+  <script src="joystick.js"></script>
   <script src="extras.js"></script>
   <script src="plain-view.js"></script>
   <script src="pointer-effects.js"></script>

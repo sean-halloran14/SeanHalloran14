@@ -215,7 +215,7 @@ function setRipple(event) {
   }
   // Clicks on links, buttons, the planet label/panel, or planets do their own
   // thing, and a click while a panel is open just closes it (sun.js).
-  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .contents")) {
+  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .contents, .joystick")) {
     return;
   }
   if (typeof getIsOverPlanet === "function" && getIsOverPlanet(event.clientX, event.clientY)) {
