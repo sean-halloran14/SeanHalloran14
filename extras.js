@@ -415,7 +415,7 @@ let extrasToastTimer = 0;
 function setExtrasToast(message) {
   // Borrows the hunt's toast for a moment.
   const toast = document.querySelector(".hunt-toast");
-  const usual = "You found every planet!";
+  const usual = "You found every project!";
   toast.textContent = message;
   toast.hidden = false;
   clearTimeout(extrasToastTimer);

@@ -25,20 +25,20 @@
   <div class="top-bar">
     <button class="top-link contents-button" type="button" aria-expanded="false" aria-controls="contents">Contents</button>
     <a class="top-link" href="resume.pdf">Résumé</a>
-    <a class="top-link top-email" href="mailto:you@example.com">Email</a>
+    <a class="top-link top-email" href="mailto:seanhalloran14@gmail.com">Email</a>
     <button class="top-link plain-button" type="button">Just show me the work</button>
   </div>
-  <nav class="contents" id="contents" hidden aria-label="Planets found so far">
+  <nav class="contents" id="contents" hidden aria-label="Projects found so far">
     <p class="contents-heading">Found so far</p>
-    <!-- Each found planet lights a star; find them all to finish the shape. -->
+    <!-- Each found project lights a star; find them all to finish the shape. -->
     <canvas class="constellation" aria-hidden="true"></canvas>
     <ul class="contents-list"></ul>
     <p class="contents-note"></p>
   </nav>
   <!-- Points at the first hidden planet until it's caught (hunt.js). -->
   <p class="coach" hidden aria-hidden="true">
-    <span class="hint-pointer">A hidden planet! Hold the mouse on it to fly there (or use the arrow keys).</span>
-    <span class="hint-touch">A hidden planet! Hold your finger on it to fly there.</span>
+    <span class="hint-pointer">A hidden project! Hold the mouse on it to fly there (or use the arrow keys).</span>
+    <span class="hint-touch">A hidden project! Hold your finger on it to fly there.</span>
   </p>
 
   <div class="page">
@@ -53,7 +53,7 @@
       <!-- Shown only in the plain one-page view. -->
       <header class="plain-intro">
         <p class="plain-intro-tag">Sean Halloran &middot; Data engineer</p>
-        <p class="plain-intro-text">Everything from the planets, on one page.</p>
+        <p class="plain-intro-text">Everything from the projects, on one page.</p>
       </header>
 
       <!-- THE CONTENT. Each item is one planet, in order from the innermost
@@ -66,7 +66,7 @@
              data-icon         the planet's icon: pipeline, migrate, diagnostics,
                                docs, about or contact (drawn in sun.js)
              .planet-title     the title (also the hover label)
-             .planet-text      a short description
+             .planet-text      a short description (several make several paragraphs)
              .planet-tools     tools / skills shown as chips (optional)
              .planet-links     links shown as buttons (optional)
            Replace the [bracketed] text with your own. -->
@@ -97,17 +97,20 @@
         </li>
         <li data-tag="About" data-icon="about">
           <a class="planet-title" href="#">About me</a>
-          <p class="planet-text">[A short paragraph: your background, what kind of problems you enjoy, and what you're looking for next.]</p>
+          <p class="planet-text">I ended up in computer science the way a lot of math-and-science kids do: it was the class where I stopped watching the clock. I studied it at James Madison University, with minors in math and physics. I also have a knack for locking onto one problem and refusing to let go, which is great for debugging and less great when dinner was an hour ago.</p>
+          <p class="planet-text">My favorite part of any project is the design: working out how to represent a messy problem in code until it finally makes sense. If something doesn't make sense, I'll find a way to make it make sense. These days that means working remotely from Salt Lake City for a hospitality company in Virginia, turning its data into answers that save the managers time. I got into data through an internship there, but I'm curious about most corners of computer science. This website is my first of its kind, and it has been far more fun than it probably should be.</p>
+          <p class="planet-text">I've also spent time bartending at a cidery here. I'm naturally a bit awkward, so I took the job on purpose to get out of my shell. It worked: I'm more direct, I can hold a conversation, and I still need a quiet evening afterwards.</p>
+          <p class="planet-text">Away from the keyboard I'm climbing, skiing, mountain biking, hiking, fishing, or out on the water in a kayak or canoe, ideally after a long scenic drive. Indoors it's guitar (currently losing an argument with music theory), a new chess opening every few months, and games: Overwatch 2, Valorant, Baldur's Gate 3 and Skyrim, which I'll keep replaying until The Elder Scrolls VI finally comes out.</p>
           <ul class="planet-tools"><li>Python</li><li>SQL</li><li>DAX</li><li>Microsoft Fabric</li><li>Delta Lake</li><li>DuckDB</li><li>Polars</li><li>Power BI</li><li>Git</li><li>REST APIs</li><li>Django</li></ul>
           <div class="planet-links"><a href="resume.pdf">Download résumé</a></div>
         </li>
         <li data-tag="Contact" data-icon="contact">
-          <a class="planet-title" href="#">Let's build something</a>
-          <p class="planet-text">[Open to roles / freelance / collaborations.]</p>
+          <a class="planet-title" href="#">Say hello</a>
+          <p class="planet-text">Always happy to talk about data, code, climbing, chess or anything else on here. Email is the best way to reach me, or you can find me on GitHub and LinkedIn.</p>
           <div class="planet-links">
-            <a href="mailto:you@example.com">Email</a>
+            <a href="mailto:seanhalloran14@gmail.com">Email</a>
             <a href="https://github.com/SeanHalloran14">GitHub</a>
-            <a href="https://www.linkedin.com/in/your-profile">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/sean-halloran14">LinkedIn</a>
           </div>
         </li>
       </ul>
@@ -130,13 +133,13 @@
     <button class="planet-panel-close" type="button" aria-label="Close">&times;</button>
     <span class="planet-panel-tag"></span>
     <h2 class="planet-panel-title" id="planet-panel-title"></h2>
-    <p class="planet-panel-text"></p>
+    <div class="planet-panel-text"></div>
     <ul class="planet-panel-tools"></ul>
     <div class="planet-panel-links"></div>
   </section>
 
   <!-- The planet hunt (hunt.js): radar, counter and skip / replay button. -->
-  <aside class="radar" hidden aria-label="Planet radar">
+  <aside class="radar" hidden aria-label="Project radar">
     <canvas class="radar-dial" aria-hidden="true"></canvas>
     <span class="radar-count" aria-live="polite"></span>
     <button class="radar-button" type="button"></button>
@@ -145,7 +148,7 @@
       <button class="boost-button" type="button" disabled>Boost</button>
     </div>
   </aside>
-  <p class="hunt-toast" hidden role="status">You found every planet!</p>
+  <p class="hunt-toast" hidden role="status">You found every project!</p>
 
   <!-- Cursor trail and click ripples; drawn by pointer-effects.js. -->
   <canvas class="pointer-effects" aria-hidden="true"></canvas>

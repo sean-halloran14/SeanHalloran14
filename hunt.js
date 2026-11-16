@@ -713,7 +713,7 @@ function setContentsList() {
   }
   contentsNote.textContent = "";
   if (missing > 0) {
-    contentsNote.textContent = "Each planet you find lights a star. Find the rest with the radar, or press \"Show me everything\".";
+    contentsNote.textContent = "Each project you find lights a star. Find the rest with the radar, or press \"Show me everything\".";
   } else {
     // The constellation is complete: a thank-you, and a way to get in touch.
     contentsNote.appendChild(document.createTextNode("Constellation complete! Thanks for exploring. "));

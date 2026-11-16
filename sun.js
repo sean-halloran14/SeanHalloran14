@@ -197,7 +197,14 @@ function getPlanetItem(index) {
     return null;
   }
   const titleElement = item.querySelector(".planet-title");
-  const textElement = item.querySelector(".planet-text");
+  // Each .planet-text is one paragraph in the panel.
+  const paragraphs = [];
+  for (const textElement of item.querySelectorAll(".planet-text")) {
+    const paragraph = textElement.textContent.trim();
+    if (paragraph) {
+      paragraphs.push(paragraph);
+    }
+  }
   const tools = [];
   for (const tool of item.querySelectorAll(".planet-tools li")) {
     tools.push(tool.textContent.trim());
@@ -210,11 +217,7 @@ function getPlanetItem(index) {
   if (titleElement) {
     title = titleElement.textContent.trim();
   }
-  let text = "";
-  if (textElement) {
-    text = textElement.textContent.trim();
-  }
-  return { tag: item.dataset.tag || "", title: title, text: text, tools: tools, links: links };
+  return { tag: item.dataset.tag || "", title: title, paragraphs: paragraphs, tools: tools, links: links };
 }
 
 // ---------- Position and size ----------
@@ -1539,7 +1542,13 @@ function setPanelShown(index) {
   setLabelHidden();
   planetPanel.querySelector(".planet-panel-tag").textContent = item.tag;
   planetPanel.querySelector(".planet-panel-title").textContent = item.title;
-  planetPanel.querySelector(".planet-panel-text").textContent = item.text;
+  const text = planetPanel.querySelector(".planet-panel-text");
+  text.textContent = "";
+  for (const paragraph of item.paragraphs) {
+    const line = document.createElement("p");
+    line.textContent = paragraph;
+    text.appendChild(line);
+  }
 
   const tools = planetPanel.querySelector(".planet-panel-tools");
   tools.textContent = "";

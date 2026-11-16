@@ -13,7 +13,7 @@ const plainButton = document.querySelector(".plain-button");
 function setPlainView(plain) {
   document.documentElement.classList.toggle("is-plain", plain);
   if (plain) {
-    plainButton.textContent = "Back to the planets";
+    plainButton.textContent = "Back to the projects";
     window.scrollTo(0, 0);
     history.replaceState(null, "", "#work");
     if (typeof setPanelHidden === "function") {
