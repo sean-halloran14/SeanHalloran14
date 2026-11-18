@@ -68,13 +68,19 @@ function getHuntSeconds() {
 }
 
 function getIsPlanetFound(index) {
-  // Used by sun.js: only found planets orbit the orb.
-  return huntState.found[index] === true;
+  // Used by sun.js: only found planets orbit me. Only planets are hunted; a
+  // moon counts as found once its planet is.
+  return huntState.found[getParentPlanet(index)] === true;
+}
+
+function getPlanetTotal() {
+  // How many planets there are to find (moons come with their planet).
+  return getTopPlanets().length;
 }
 
 function getFoundCount() {
   let count = 0;
-  for (let i = 0; i < sunState.planetCount; i++) {
+  for (const i of getTopPlanets()) {
     if (huntState.found[i]) {
       count += 1;
     }
@@ -181,7 +187,7 @@ function setWildPlanets() {
   huntState.wild = [];
   const spots = getHidingSpots(sunState.planetCount);
   for (let i = 0; i < sunState.planetCount; i++) {
-    if (huntState.found[i]) {
+    if (huntState.found[i] || getIsMoon(i)) {
       huntState.wild.push(null);
       continue;
     }
@@ -310,7 +316,13 @@ function getIsFlying(index) {
 
 function setCatchPlanet(index) {
   // Starts a hidden planet's flight home (or brings it home at once with
-  // reduced motion). Already found: just open its panel.
+  // reduced motion). Already found: just open its panel. Asked for a moon
+  // whose planet is still hidden, it catches the planet.
+  if (getIsMoon(index) && huntState.found[getParentPlanet(index)]) {
+    setPanelShown(index);
+    return;
+  }
+  index = getParentPlanet(index);
   if (huntState.found[index]) {
     setPanelShown(index);
     return;
@@ -342,7 +354,7 @@ function setPlanetHome(index, openPanel) {
   if (openPanel) {
     setPanelShown(index);
   }
-  if (getFoundCount() === sunState.planetCount) {
+  if (getFoundCount() === getPlanetTotal()) {
     setCelebration();
   }
 }
@@ -351,7 +363,7 @@ function setShowEverything() {
   // Sends every remaining planet home at once (no panel opens).
   const seconds = getHuntSeconds();
   for (let i = 0; i < sunState.planetCount; i++) {
-    if (huntState.found[i] || getIsFlying(i)) {
+    if (getIsMoon(i) || huntState.found[i] || getIsFlying(i)) {
       continue;
     }
     if (huntMotion.matches) {
@@ -609,6 +621,7 @@ const coach = document.querySelector(".coach");
 const CONSTELLATION = [
   [0.08, 0.66], [0.2, 0.34], [0.34, 0.56], [0.47, 0.2],
   [0.6, 0.44], [0.73, 0.24], [0.87, 0.5], [0.7, 0.8],
+  [0.5, 0.78],
 ];
 
 function setConstellationDrawn() {
@@ -623,8 +636,10 @@ function setConstellationDrawn() {
   const context = constellationCanvas.getContext("2d");
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, width, height);
-  const count = Math.min(sunState.planetCount, CONSTELLATION.length);
-  const complete = getFoundCount() === sunState.planetCount;
+  // One star per planet (moons come with their planet).
+  const planets = getTopPlanets();
+  const count = Math.min(planets.length, CONSTELLATION.length);
+  const complete = getFoundCount() === getPlanetTotal();
   const points = [];
   for (let i = 0; i < count; i++) {
     points.push({ x: CONSTELLATION[i][0] * width, y: CONSTELLATION[i][1] * height });
@@ -633,7 +648,7 @@ function setConstellationDrawn() {
   // Lines: lit between two found stars, a faint dotted guide otherwise.
   context.lineCap = "round";
   for (let i = 1; i < count; i++) {
-    const lit = huntState.found[i - 1] && huntState.found[i];
+    const lit = huntState.found[planets[i - 1]] && huntState.found[planets[i]];
     context.beginPath();
     context.moveTo(points[i - 1].x, points[i - 1].y);
     context.lineTo(points[i].x, points[i].y);
@@ -660,7 +675,7 @@ function setConstellationDrawn() {
   // Stars.
   for (let i = 0; i < count; i++) {
     context.beginPath();
-    if (huntState.found[i]) {
+    if (huntState.found[planets[i]]) {
       context.arc(points[i].x, points[i].y, 4, 0, Math.PI * 2);
       context.fillStyle = getSunColour("--sun-core", 1);
       context.shadowColor = getSunColour("--sun-glow", 1);
@@ -695,36 +710,47 @@ function setCoachFrame(seconds) {
   coach.style.top = y + "px";
 }
 
+function getContentsButton(index, isMoon) {
+  // One entry in the contents list: its tag and title; click to open it.
+  const item = getPlanetItem(index);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "contents-item";
+  if (isMoon) {
+    button.className = "contents-item contents-moon";
+  }
+  const tag = document.createElement("small");
+  tag.textContent = item.tag;
+  button.appendChild(tag);
+  button.appendChild(document.createTextNode(item.title));
+  button.addEventListener("click", function () {
+    setPanelShown(index);
+  });
+  return button;
+}
+
 function setContentsList() {
-  // Lists every planet found so far (click one to open its panel); the
-  // rest show as "not found yet" placeholders.
+  // Lists every planet found so far with its moons under it (click one to
+  // open its panel); planets still hidden show as "not found yet".
   contentsList.textContent = "";
   let missing = 0;
-  for (let i = 0; i < sunState.planetCount; i++) {
+  for (const i of getTopPlanets()) {
     const row = document.createElement("li");
     if (huntState.found[i]) {
-      const item = getPlanetItem(i);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "contents-item";
-      const tag = document.createElement("small");
-      tag.textContent = item.tag;
-      button.appendChild(tag);
-      button.appendChild(document.createTextNode(item.title));
-      button.addEventListener("click", function () {
-        setPanelShown(i);
-      });
-      row.appendChild(button);
+      row.appendChild(getContentsButton(i, false));
+      for (const moon of getMoons(i)) {
+        row.appendChild(getContentsButton(moon, true));
+      }
     } else {
       row.className = "contents-hidden";
-      row.textContent = "? not found yet";
+      row.textContent = "? a planet not found yet";
       missing += 1;
     }
     contentsList.appendChild(row);
   }
   contentsNote.textContent = "";
   if (missing > 0) {
-    contentsNote.textContent = "Each project you find lights a star. Find the rest with the radar, or press \"Show me everything\".";
+    contentsNote.textContent = "Each planet you find lights a star. Find the rest with the radar, or press \"Show me everything\".";
   } else {
     // The constellation is complete: a thank-you, and a way to get in touch.
     contentsNote.appendChild(document.createTextNode("Constellation complete! Thanks for exploring. "));
@@ -752,8 +778,8 @@ function setContentsShown(shown) {
 function setRadarText() {
   setContentsList();
   const found = getFoundCount();
-  radarCount.textContent = found + " / " + sunState.planetCount + " found";
-  if (found === sunState.planetCount) {
+  radarCount.textContent = found + " / " + getPlanetTotal() + " found";
+  if (found === getPlanetTotal()) {
     radarButton.textContent = "Hide them again";
   } else {
     radarButton.textContent = "Show me everything";
@@ -860,7 +886,7 @@ function setHuntStart() {
     }
   });
   radarButton.addEventListener("click", function () {
-    if (getFoundCount() === sunState.planetCount) {
+    if (getFoundCount() === getPlanetTotal()) {
       setHideAgain();
     } else {
       setShowEverything();

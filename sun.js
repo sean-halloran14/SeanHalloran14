@@ -91,16 +91,32 @@ const SUN = {
   // Orbit distance (px), size (px), main and accent colours from styles.css.
   // Rings and moons only show on planets without an icon. Speeds follow the
   // orbit.
-  planets: [
-    { orbit: 160, size: 25, colour: "--sky-light", stripe: "--sky", ring: false, moon: false },
-    { orbit: 215, size: 25, colour: "--sage", stripe: "--sunset", ring: false, moon: true },
-    { orbit: 270, size: 25, colour: "--tan", stripe: "--sun-glow", ring: true, moon: false },
-    { orbit: 325, size: 25, colour: "--sky", stripe: "--sunset", ring: false, moon: false },
-    { orbit: 380, size: 25, colour: "--olive", stripe: "--sage", ring: false, moon: false },
-    { orbit: 435, size: 25, colour: "--horizon", stripe: "--ember", ring: false, moon: true },
-    { orbit: 490, size: 22, colour: "--cream", stripe: "--horizon", ring: true, moon: false },
-    { orbit: 545, size: 22, colour: "--earth", stripe: "--tan-dark", ring: false, moon: true },
+  // The solar system is built from .planet-list in index.html: each item is a
+  // planet (a company, a university, About me) unless it has data-kind="moon",
+  // in which case it orbits the planet listed before it (a project, what I did
+  // there, a hobby). Planets take these looks in turn; moons take moonStyles.
+  planetStyles: [
+    { colour: "--sky-light", stripe: "--sky" },
+    { colour: "--sage", stripe: "--sunset" },
+    { colour: "--horizon", stripe: "--ember" },
+    { colour: "--tan", stripe: "--sun-glow" },
   ],
+  moonStyles: [
+    { colour: "--sky", stripe: "--sunset" },
+    { colour: "--olive", stripe: "--sage" },
+    { colour: "--cream", stripe: "--horizon" },
+    { colour: "--earth", stripe: "--tan-dark" },
+    { colour: "--sun-glow", stripe: "--ember" },
+  ],
+  planetOrbitStart: 240,   // the first planet's distance from me, px (before scaling)
+  planetOrbitGap: 290,     // extra distance for each planet further out, px
+  planetSize: 46,          // planet size, px (before scaling)
+  moonOrbitStart: 96,      // the first moon's distance from its planet, px
+  moonOrbitGap: 34,        // extra distance for each further moon, px
+  moonSize: 30,            // moon size, px
+  moonSpeed: 0.75,         // radians per second for a planet's innermost moon
+  fitScreens: 2.4,         // the system is scaled to fit this many half-screens (the outer planets can sit off screen)
+  planets: [],             // filled from the list at start-up (setSolarSystem)
   innerSpeed: 0.45,        // radians per second for the innermost orbit
   hoverReach: 14,          // how close the pointer must be to a planet's edge, px
   hintTime: 12,            // seconds before the hint fades by itself
@@ -225,10 +241,10 @@ function getPlanetItem(index) {
 function getOuterReach() {
   // The furthest any planet gets from the orb, before scaling.
   let reach = 0;
-  for (let i = 0; i < sunState.planetCount; i++) {
+  for (const i of getTopPlanets()) {
     const orbit = sunState.planetOrbits[i];
     const stretch = Math.max(orbit.ovalX, orbit.ovalY) + orbit.loopSize;
-    reach = Math.max(reach, SUN.planets[i].orbit * stretch);
+    reach = Math.max(reach, SUN.planets[i].orbit * stretch + getMoonReach(i));
   }
   return reach;
 }
@@ -237,7 +253,7 @@ function setSunScale() {
   // Shrinks the whole system so its outer orbit fits on the screen (the
   // world is bigger than the screen, but the system should fit in one view).
   const outer = getOuterReach() + 30;
-  const room = Math.min(window.innerWidth, window.innerHeight) / 2 - 24;
+  const room = (Math.min(window.innerWidth, window.innerHeight) / 2 - 24) * SUN.fitScreens;
   sunState.scale = Math.min(1, Math.max(0.4, room / outer));
   if (typeof BG !== "undefined") {
     sunState.scale = sunState.scale * BG.zoom;   // the page's zoom (background.js)
@@ -925,6 +941,94 @@ function getRandomInRange(random, range) {
   return range[0] + random() * (range[1] - range[0]);
 }
 
+// ---------- The solar system ----------
+
+function setSolarSystem() {
+  // Turns the list into bodies: planets in order outward from me, and moons
+  // round the planet before them. Every body keeps its list index, so panels,
+  // labels, keyboard focus and the hunt all work the same for both.
+  SUN.planets = [];
+  let parent = null;
+  let planetNumber = 0;
+  let moonNumber = 0;
+  for (let i = 0; i < planetItems.length; i++) {
+    const item = planetItems[i];
+    if (item.dataset.kind === "moon" && parent !== null) {
+      const look = SUN.moonStyles[moonNumber % SUN.moonStyles.length];
+      SUN.planets.push({
+        parent: parent,
+        orbit: SUN.moonOrbitStart + SUN.planets[parent].moonCount * SUN.moonOrbitGap,
+        size: SUN.moonSize,
+        colour: look.colour,
+        stripe: look.stripe,
+        ring: false,
+        moon: false,
+        icon: item.dataset.icon || null,
+      });
+      SUN.planets[parent].moonCount += 1;
+      moonNumber += 1;
+    } else {
+      const look = SUN.planetStyles[planetNumber % SUN.planetStyles.length];
+      parent = i;
+      SUN.planets.push({
+        parent: null,
+        orbit: SUN.planetOrbitStart + planetNumber * SUN.planetOrbitGap,
+        size: SUN.planetSize,
+        colour: look.colour,
+        stripe: look.stripe,
+        ring: false,
+        moon: false,
+        icon: item.dataset.icon || null,
+        moonCount: 0,
+      });
+      planetNumber += 1;
+    }
+  }
+  sunState.planetCount = SUN.planets.length;
+}
+
+function getIsMoon(index) {
+  return SUN.planets[index].parent !== null;
+}
+
+function getParentPlanet(index) {
+  // The planet a moon orbits (a planet is its own parent).
+  if (getIsMoon(index)) {
+    return SUN.planets[index].parent;
+  }
+  return index;
+}
+
+function getTopPlanets() {
+  // List indexes of the planets (not moons), innermost first.
+  const planets = [];
+  for (let i = 0; i < sunState.planetCount; i++) {
+    if (!getIsMoon(i)) {
+      planets.push(i);
+    }
+  }
+  return planets;
+}
+
+function getMoons(planetIndex) {
+  const moons = [];
+  for (let i = 0; i < sunState.planetCount; i++) {
+    if (SUN.planets[i].parent === planetIndex) {
+      moons.push(i);
+    }
+  }
+  return moons;
+}
+
+function getMoonReach(planetIndex) {
+  // How far a planet's furthest moon gets from it, px before scaling.
+  let reach = 0;
+  for (const moon of getMoons(planetIndex)) {
+    reach = Math.max(reach, SUN.planets[moon].orbit * 1.15);
+  }
+  return reach;
+}
+
 function setPlanetOrbits() {
   // Gives every planet its own orbit shape, speed and direction.
   let random = Math.random;
@@ -934,9 +1038,31 @@ function setPlanetOrbits() {
   sunState.planetOrbits = [];
   sunState.planetTrails = [];
   for (let i = 0; i < sunState.planetCount; i++) {
+    if (getIsMoon(i)) {
+      // A moon: a near-circle round its planet, inner moons faster.
+      const moonSpeed = SUN.moonSpeed * Math.pow(SUN.moonOrbitStart / SUN.planets[i].orbit, 1.5);
+      let moonDirection = 1;
+      if (random() < 0.3) {
+        moonDirection = -1;
+      }
+      sunState.planetOrbits.push({
+        phase: random() * Math.PI * 2,
+        ovalX: getRandomInRange(random, [0.95, 1.1]),
+        ovalY: getRandomInRange(random, [0.85, 1.0]),
+        tilt: random() * Math.PI,
+        precess: 0,
+        loopSize: 0,
+        loops: 0,
+        loopPhase: 0,
+        speed: moonSpeed * getRandomInRange(random, [0.85, 1.15]),
+        direction: moonDirection,
+      });
+      sunState.planetTrails.push([]);
+      continue;
+    }
     // Closer planets go round faster (speed falls with orbit^1.5, like a
     // real solar system), then each gets its own nudge.
-    const plainSpeed = SUN.innerSpeed * Math.pow(SUN.planets[0].orbit / SUN.planets[i].orbit, 1.5);
+    const plainSpeed = SUN.innerSpeed * Math.pow(SUN.planetOrbitStart / SUN.planets[i].orbit, 1.5);
     let direction = getOrbitDirection();
     if (random() < SUN.backwardsChance) {
       direction = -direction;
@@ -958,16 +1084,27 @@ function setPlanetOrbits() {
 }
 
 function getIsInOrbit(index) {
-  // A planet orbits once it has been found (hunt.js), or always if there's no hunt.
+  // A planet orbits once it has been found (hunt.js), or always if there's no
+  // hunt. A moon comes with its planet.
   if (typeof getIsPlanetFound === "function") {
-    return getIsPlanetFound(index);
+    return getIsPlanetFound(getParentPlanet(index));
   }
   return true;
 }
 
 function getPlanetOffset(index) {
-  // Where a planet is, relative to the orb: round a tilted oval, plus small
-  // loops, with the whole oval slowly turning.
+  // Where a planet is, relative to me: round a tilted oval, plus small loops,
+  // with the whole oval slowly turning. A moon circles its planet.
+  if (getIsMoon(index)) {
+    const parentOffset = getPlanetOffset(SUN.planets[index].parent);
+    const moonOffset = getOrbitOffset(index);
+    return { dx: parentOffset.dx + moonOffset.dx, dy: parentOffset.dy + moonOffset.dy };
+  }
+  return getOrbitOffset(index);
+}
+
+function getOrbitOffset(index) {
+  // A body's position round whatever it orbits (me, or its planet).
   const orbit = sunState.planetOrbits[index];
   const distance = SUN.planets[index].orbit * sunState.scale;
   const time = sunState.orbitTime;
@@ -1159,6 +1296,187 @@ function setDiagnosticsIcon(main, accent, cream, seconds) {
   setFilledEllipse(x, y, 1.7, 1.7, accent, 0);
 }
 
+function setPosIcon(main, accent, cream, seconds) {
+  // The point-of-sale pipeline: a till with a receipt that keeps printing.
+  const printed = 6 + ((seconds * 0.6) % 1) * 9;
+  // The receipt, coming out of the top.
+  drawContext.beginPath();
+  drawContext.moveTo(-6, -4);
+  drawContext.lineTo(-6, -4 - printed);
+  for (let i = 0; i <= 4; i++) {
+    drawContext.lineTo(-6 + i * 3, -4 - printed + (i % 2) * 1.6);
+  }
+  drawContext.lineTo(6, -4);
+  drawContext.closePath();
+  drawContext.fillStyle = cream;
+  drawContext.fill();
+  setInk(1.6);
+  for (let line = 1; line * 3 < printed - 1; line++) {
+    drawContext.beginPath();
+    drawContext.moveTo(-3.5, -4 - line * 3);
+    drawContext.lineTo(3.5, -4 - line * 3);
+    drawContext.lineWidth = 1;
+    drawContext.strokeStyle = getSunColour("--ink-soft", 0.7);
+    drawContext.stroke();
+  }
+  // The till: a body with a little screen and keys.
+  setRoundedBox(-13, -5, 26, 17, 3.5);
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2.2);
+  setRoundedBox(-9, -2, 10, 6, 1.5);
+  drawContext.fillStyle = getSunColour("--navy", 1);
+  drawContext.fill();
+  setInk(1.2);
+  for (let key = 0; key < 3; key++) {
+    setFilledEllipse(5 + (key % 2) * 4, -0.5 + Math.floor(key / 2) * 4, 1.5, 1.5, accent, 1);
+  }
+  setRoundedBox(-11, 6.5, 22, 3, 1.2);
+  drawContext.fillStyle = accent;
+  drawContext.fill();
+  setInk(1.2);
+}
+
+function setCompanyIcon(main, accent, cream, seconds) {
+  // Where I work: an office building with lit windows that blink on and off.
+  setRoundedBox(-12, -15, 24, 30, 2.5);
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2.2);
+  for (let row = 0; row < 4; row++) {
+    for (let column = 0; column < 3; column++) {
+      const lit = Math.sin(seconds * 1.7 + row * 2.1 + column * 1.3) > -0.3;
+      let colour = getSunColour("--navy", 1);
+      if (lit) {
+        colour = getSunColour("--sun-glow", 1);
+      }
+      setRoundedBox(-8.5 + column * 6.5, -11 + row * 6, 4, 3.6, 0.8);
+      drawContext.fillStyle = colour;
+      drawContext.fill();
+      setInk(1);
+    }
+  }
+  setRoundedBox(-3, 10, 6, 5, 1);
+  drawContext.fillStyle = accent;
+  drawContext.fill();
+  setInk(1.4);
+}
+
+function setUniversityIcon(main, accent, cream, seconds) {
+  // University: a mortarboard with a swinging tassel.
+  drawContext.beginPath();
+  drawContext.moveTo(-9, 1);
+  drawContext.lineTo(-9, 8);
+  drawContext.quadraticCurveTo(0, 13, 9, 8);
+  drawContext.lineTo(9, 1);
+  drawContext.closePath();
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2);
+  drawContext.beginPath();
+  drawContext.moveTo(0, -12);
+  drawContext.lineTo(16, -4);
+  drawContext.lineTo(0, 4);
+  drawContext.lineTo(-16, -4);
+  drawContext.closePath();
+  drawContext.fillStyle = getSunColour("--navy", 1);
+  drawContext.fill();
+  setInk(2.2);
+  const swing = Math.sin(seconds * 2.2) * 2.5;
+  drawContext.beginPath();
+  drawContext.moveTo(0, -4);
+  drawContext.lineTo(11, -1);
+  drawContext.lineTo(11 + swing, 9);
+  drawContext.lineWidth = 1.6;
+  drawContext.strokeStyle = accent;
+  drawContext.stroke();
+  setFilledEllipse(11 + swing, 10, 1.8, 2.4, accent, 1);
+  setFilledEllipse(0, -4, 1.6, 1.6, accent, 1);
+}
+
+function setOutdoorsIcon(main, accent, cream, seconds) {
+  // Outdoors: two mountains with snowy tops and the sun peeking over.
+  setFilledEllipse(9, -8 + Math.sin(seconds * 1.2) * 1.2, 4.5, 4.5, getSunColour("--sun-glow", 1), 1.4);
+  drawContext.beginPath();
+  drawContext.moveTo(-16, 12);
+  drawContext.lineTo(-5, -9);
+  drawContext.lineTo(5, 12);
+  drawContext.closePath();
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  setInk(2);
+  drawContext.beginPath();
+  drawContext.moveTo(-2, 12);
+  drawContext.lineTo(7, -3);
+  drawContext.lineTo(16, 12);
+  drawContext.closePath();
+  drawContext.fillStyle = accent;
+  drawContext.fill();
+  setInk(2);
+  drawContext.beginPath();
+  drawContext.moveTo(-8.2, -3);
+  drawContext.lineTo(-5, -9);
+  drawContext.lineTo(-1.8, -3);
+  drawContext.quadraticCurveTo(-5, -1, -8.2, -3);
+  drawContext.fillStyle = cream;
+  drawContext.fill();
+  setInk(1.2);
+}
+
+function setBarIcon(main, accent, cream, seconds) {
+  // Behind the bar: a glass of cider with bubbles rising.
+  drawContext.beginPath();
+  drawContext.moveTo(-9, -12);
+  drawContext.lineTo(9, -12);
+  drawContext.lineTo(7, 13);
+  drawContext.lineTo(-7, 13);
+  drawContext.closePath();
+  drawContext.fillStyle = cream;
+  drawContext.fill();
+  setInk(2.2);
+  drawContext.beginPath();
+  drawContext.moveTo(-8.4, -6);
+  drawContext.lineTo(8.4, -6);
+  drawContext.lineTo(6.9, 12.2);
+  drawContext.lineTo(-6.9, 12.2);
+  drawContext.closePath();
+  drawContext.fillStyle = main;
+  drawContext.fill();
+  for (let bubble = 0; bubble < 3; bubble++) {
+    const rise = (seconds * 0.6 + bubble / 3) % 1;
+    setFilledEllipse(-3 + bubble * 3, 10 - rise * 15, 1.2, 1.2, cream, 0);
+  }
+  drawContext.beginPath();
+  drawContext.moveTo(-9, -12);
+  drawContext.lineTo(9, -12);
+  drawContext.lineTo(7, 13);
+  drawContext.lineTo(-7, 13);
+  drawContext.closePath();
+  setInk(2.2);
+}
+
+function setMusicIcon(main, accent, cream, seconds) {
+  // Guitar, chess and games: a guitar with a note floating off it.
+  drawContext.save();
+  drawContext.rotate(-0.6);
+  setRoundedBox(-2, -18, 4, 16, 1.5);
+  drawContext.fillStyle = getSunColour("--brown", 1);
+  drawContext.fill();
+  setInk(1.6);
+  setFilledEllipse(0, 3, 7, 6, main, 2);
+  setFilledEllipse(0, 10, 8.5, 7, main, 2);
+  setFilledEllipse(0, 5, 2.2, 2.2, getSunColour("--navy", 1), 1.2);
+  drawContext.restore();
+  const drift = (seconds * 0.5) % 1;
+  drawContext.globalAlpha = 1 - drift;
+  setFilledEllipse(10, -4 - drift * 8, 2.4, 1.9, accent, 1.2);
+  drawContext.beginPath();
+  drawContext.moveTo(12.2, -4 - drift * 8);
+  drawContext.lineTo(12.2, -12 - drift * 8);
+  setInk(1.4);
+  drawContext.globalAlpha = 1;
+}
+
 function setDocsIcon(main, accent, cream, seconds) {
   // Writing it down: an open book with lines of text and a ribbon.
   drawContext.beginPath();
@@ -1275,6 +1593,18 @@ function setPlanetIcon(px, py, size, planet, seconds, seed) {
     setDiagnosticsIcon(main, accent, cream, seconds);
   } else if (planet.icon === "docs") {
     setDocsIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "pos") {
+    setPosIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "company") {
+    setCompanyIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "university") {
+    setUniversityIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "outdoors") {
+    setOutdoorsIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "bar") {
+    setBarIcon(main, accent, cream, seconds);
+  } else if (planet.icon === "music") {
+    setMusicIcon(main, accent, cream, seconds);
   } else if (planet.icon === "about") {
     setAboutIcon(main, accent, cream, seconds);
   } else if (planet.icon === "contact") {
@@ -1364,7 +1694,9 @@ function setPlanets(centre, seconds) {
     if (active === null) {
       setPlanetTrailPoint(i, offset.dx, offset.dy, seconds);
     }
-    setPlanetTrail(centre, i, size, SUN.planets[i].colour, seconds);
+    if (!getIsMoon(i)) {
+      setPlanetTrail(centre, i, size, SUN.planets[i].colour, seconds);
+    }
   }
 
   for (let i = 0; i < sunState.planetCount; i++) {
@@ -1784,10 +2116,7 @@ function setSunLayout() {
   setSunFrame(getSunSeconds());
 }
 
-sunState.planetCount = Math.min(SUN.planets.length, planetItems.length);
-for (let i = 0; i < sunState.planetCount; i++) {
-  SUN.planets[i].icon = planetItems[i].dataset.icon || null;
-}
+setSolarSystem();
 setPlanetOrbits();
 setSunScale();
 setKeyboardHandlers();

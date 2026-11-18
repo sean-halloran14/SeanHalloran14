@@ -315,6 +315,13 @@ body {
   cursor: pointer;
 }
 .contents-item:hover, .contents-item:focus-visible { background: var(--sun-glow); }
+/* A moon, listed under its planet. */
+.contents-item.contents-moon {
+  width: calc(100% - 16px);
+  margin: 5px 0 0 16px;
+  background: var(--cream);
+  font-size: 0.8rem;
+}
 .contents-item small {
   display: block;
   font: 500 0.66rem "JetBrains Mono", monospace;
@@ -425,6 +432,16 @@ html.is-plain body { touch-action: auto; background: #0d1a26; }
   background: var(--cream);
   color: var(--ink);
   box-shadow: 5px 5px 0 var(--brown-deep);
+}
+/* Planets (a company, the university, About me) head their moons, which
+   are indented under them. */
+.is-plain .planet-list > li:not([data-kind="moon"]) {
+  margin-top: 18px;
+  background: var(--sun-glow);
+}
+.is-plain .planet-list > li[data-kind="moon"] { margin-left: 28px; }
+@media (max-width: 640px) {
+  .is-plain .planet-list > li[data-kind="moon"] { margin-left: 12px; }
 }
 .is-plain .planet-list > li::before {
   content: attr(data-tag);

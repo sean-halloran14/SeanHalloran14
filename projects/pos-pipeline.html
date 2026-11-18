@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Point-of-Sale Pipeline | Sean Halloran</title>
+  <meta name="description" content="Building a restaurant point-of-sale data pipeline ahead of go-live by reusing a proven framework.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    /* The site's palette (see ../styles.css). */
+    :root {
+      --navy: #1c3a56;
+      --sky-deep: #2b5f8a;
+      --sky-light: #9cc6e4;
+      --forest: #2f5a3a;
+      --olive: #6e7d32;
+      --brown-deep: #2a1d14;
+      --tan: #dccbb2;
+      --sunset: #d9622b;
+      --sun-glow: #f6a55e;
+      --cream: #f5eee1;
+      --ink: #2e2118;
+      --ink-soft: #5a4838;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, sans-serif;
+      line-height: 1.6;
+      color: var(--cream);
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(43, 95, 138, 0.55), transparent 55%),
+        radial-gradient(ellipse at 90% 40%, rgba(47, 90, 58, 0.45), transparent 50%),
+        #0d1a26;
+      min-height: 100vh;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 16px 64px;
+    }
+    .back {
+      display: inline-block;
+      margin-bottom: 28px;
+      color: var(--sky-light);
+      font: 500 0.85rem "JetBrains Mono", monospace;
+      text-decoration: none;
+    }
+    .back:hover { color: var(--sun-glow); }
+    .tag {
+      margin: 0;
+      color: var(--sun-glow);
+      font: 500 0.8rem "JetBrains Mono", monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    h1, h2 {
+      font-family: "Space Grotesk", sans-serif;
+      line-height: 1.2;
+    }
+    h1 { margin: 8px 0 14px; font-size: clamp(1.9rem, 5vw, 2.7rem); }
+    h2 { margin: 40px 0 10px; font-size: 1.35rem; color: var(--sun-glow); }
+    .lead { font-size: 1.1rem; color: var(--tan); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 28px 0 8px;
+    }
+    .stat {
+      padding: 14px 16px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 14px;
+      background: rgba(245, 238, 225, 0.94);
+      color: var(--ink);
+      box-shadow: 4px 4px 0 var(--brown-deep);
+    }
+    .stat strong {
+      display: block;
+      font: 700 1.5rem "Space Grotesk", sans-serif;
+      color: var(--sunset);
+    }
+    .stat span { font-size: 0.88rem; color: var(--ink-soft); }
+    ul { padding-left: 1.2em; }
+    li { margin: 6px 0; }
+    li strong { color: var(--sky-light); }
+    .layers {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .layer {
+      padding: 12px 16px;
+      border-left: 4px solid var(--sky-deep);
+      border-radius: 8px;
+      background: rgba(28, 58, 86, 0.55);
+    }
+    .layer b { font-family: "Space Grotesk", sans-serif; }
+    .layer:nth-child(1) { border-color: #b7976f; }
+    .layer:nth-child(2) { border-color: var(--sky-light); }
+    .layer:nth-child(3) { border-color: var(--sun-glow); }
+    .tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      list-style: none;
+    }
+    .tools li {
+      margin: 0;
+      padding: 3px 12px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 999px;
+      background: var(--tan);
+      color: var(--ink);
+      font: 500 0.8rem "JetBrains Mono", monospace;
+    }
+    .note { color: var(--tan); font-size: 0.9rem; opacity: 0.8; }
+    .play-link {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 8px 16px;
+      border: 2px solid var(--brown-deep);
+      border-radius: 999px;
+      background: var(--sunset);
+      color: var(--cream);
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 3px 3px 0 var(--brown-deep);
+    }
+    .play-link:hover { background: var(--sun-glow); color: var(--ink); }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="../index.html">&larr; back to the projects</a>
+    <p class="tag">Pipelines &middot; Data engineering</p>
+    <h1>A point-of-sale pipeline, ready before go-live</h1>
+    <p class="lead">The company's restaurants are moving to a new point-of-sale system. Rather than port the old system's pipeline, I built one for the new system ahead of the switch, reusing the framework from my nightly pipeline rebuild, so the data and reports are ready the day sales move over.</p>
+
+    <div class="stats">
+      <div class="stat"><strong>14</strong><span>API endpoints, across two separately authorised APIs</span></div>
+      <div class="stat"><strong>~30</strong><span>cleaned and business tables, built by the same framework</span></div>
+      <div class="stat"><strong>7 days</strong><span>re-pulled each night to catch late edits</span></div>
+      <div class="stat"><strong>Day one</strong><span>report ready before any real sales arrive</span></div>
+    </div>
+
+    <h2>The problem</h2>
+    <p>The old point-of-sale data came through a workspace with its own pipelines, notebooks and storage, built the way the company's other early pipelines were. With the system being replaced, migrating that setup would mean rebuilding something about to be retired. What mattered was that the reports people rely on (sales, items, tip pools, time sheets) keep working on the new system's data.</p>
+
+    <h2>What I built</h2>
+    <div class="layers">
+      <div class="layer"><b>Bronze: download.</b> The new system's API works one restaurant at a time, so each request loops over the restaurants and merges the results into one raw file per day, tagged with the restaurant. Two separate API credentials sign in independently, each with its own token, and the client keeps to the vendor's rate limits and two different styles of paging.</div>
+      <div class="layer"><b>Silver: clean.</b> Orders, items, modifiers, payments, time entries, employees, jobs, menus and the restaurants' setup (discounts, service charges, tax rates, dining options) become typed Delta tables. Conventions are decided once: every percentage is stored as a fraction, even where the vendor sends some as 10 and others as 0.06.</div>
+      <div class="layer"><b>Gold: combine.</b> Business tables keep the old system's names and columns where reports depend on them, so existing reports can be repointed rather than rebuilt; where the new system has no equivalent the column is left empty and documented.</div>
+    </div>
+
+    <h2>Details that matter</h2>
+    <ul>
+      <li><strong>Late edits.</strong> Orders are fetched by business day and the last seven days are pulled again each night, catching tips adjusted and items voided after the fact.</li>
+      <li><strong>Built before the data existed.</strong> The restaurants are still in test mode, so tables built on sales simply warn "no data yet" and succeed, instead of failing every night until cutover.</li>
+      <li><strong>Menu coverage.</strong> Every item and modifier set up in the system is compared with the published menus, and the report flags items that aren't on any menu.</li>
+      <li><strong>Same safety net.</strong> The run logging, gap filling and test-copy workflow from the nightly pipeline come with the framework for free.</li>
+    </ul>
+
+    <h2>Where it's going</h2>
+    <p>This was the first pipeline to reuse the framework, and it showed the shared code drifting between copies. My plan to package that framework as a versioned library, installed by each pipeline at a pinned version, has been approved, so the next migrations start from one tested source.</p>
+
+    <h2>Tools</h2>
+    <ul class="tools">
+      <li>Python</li><li>REST APIs</li><li>DuckDB SQL</li><li>Polars</li><li>Delta Lake</li><li>Microsoft Fabric</li><li>Power BI</li><li>Object-oriented design</li>
+    </ul>
+
+    <p class="note">Company and system names are left out.</p>
+  </main>
+</body>
+</html>

@@ -185,6 +185,16 @@
       <li><strong>Works with the people who own the data.</strong> A supplier order calendar the operations team keeps in Excel is read every night and checked against the source system; mismatches land in a report for them to fix.</li>
     </ul>
 
+    <h2 id="data-quality">Checking the data, not just the run</h2>
+    <p>Knowing a table loaded isn't the same as knowing its rows make sense, so I added a data-quality stage that runs after the business tables each night.</p>
+    <ul>
+      <li><strong>Flag, never delete.</strong> Suspicious rows are copied into a quarantine table with the rule they broke; the original data is left alone, so nothing disappears from a report without a person deciding it should.</li>
+      <li><strong>Rules for every table.</strong> General checks run everywhere (dates decades ahead, placeholder dates, impossible numbers, exact duplicates), and each table adds its own, kept in one place apart from the pipeline code.</li>
+      <li><strong>Traced to the source.</strong> Each flagged row is followed back through the tables it was built from to the raw record the vendor sent, so the fix can happen where the problem started.</li>
+      <li><strong>It found real issues.</strong> The first runs surfaced delivery dates in 2053 and about 8,700 machine lanes stocked by product group rather than product, which had no product name.</li>
+      <li><strong>Built to be read.</strong> A Power BI quarantine report shows what was flagged, where it came from, and drills into the rows; a run-history page on the diagnostics report showed one download routinely brushing its time limit, which led to a fix.</li>
+    </ul>
+
     <h2>Results</h2>
     <ul>
       <li>Every nightly run has succeeded since go-live, finishing in about 13 minutes.</li>
@@ -200,6 +210,12 @@
       <li><strong>Managers:</strong> a plain-language overview of how the new setup builds on the original, with the two side by side and what it means for the business.</li>
       <li><strong>Analysts:</strong> an 18-page guide with ground rules, recipes (top accounts, waste rates, "did last night's run load?"), how to build Power BI reports on the tables, and how to add a table, column or report safely through the test copy.</li>
       <li><strong>Developers:</strong> a 50-page reference covering every business rule, the nightly run step by step, and every class and method, plus known quirks and open questions.</li>
+    </ul>
+    <p>Then I made the pipeline document itself, so the documentation can't fall behind the code:</p>
+    <ul>
+      <li><strong>Lineage diagram.</strong> Each night the pipeline lays out how every report and table feeds the next (arranged to keep crossing lines to a minimum) and a Power BI page draws it, so anyone can see where a number comes from.</li>
+      <li><strong>Generated documentation pages.</strong> Each table's purpose, how it's built and every column, with the SQL expression behind it, come straight from the code's own classes, comments and queries, and open questions are listed alongside.</li>
+      <li><strong>One look across the reports.</strong> All of the pipeline's reports share the company's branding, status colours and layout, and drill from the lineage into a table's documentation and run history.</li>
     </ul>
 
     <h2>Tools</h2>
