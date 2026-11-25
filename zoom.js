@@ -3,8 +3,8 @@
 // =============================================================================
 // The + and − buttons (and the - and + keys) step between a few zoom levels.
 // Zooming out shrinks the whole world around the orb (background.js,
-// setBackgroundZoom): the landscape, the orb and its planets, hidden planets,
-// black holes and stardust all get smaller together, so more of the painting
+// setBackgroundZoom): the landscape, the orb and its planets, hidden planets
+// and stardust all get smaller together, so more of the painting
 // fits on screen and the orb sits where it was in it. The change eases over a
 // moment (at once with reduced motion).
 //
@@ -39,8 +39,8 @@ function setWorldZoom(share) {
   if (factor === 1) {
     return;
   }
-  if (typeof setHuntZoom === "function") {
-    setHuntZoom(factor);
+  if (typeof setTownZoom === "function") {
+    setTownZoom();
   }
   if (typeof setExtrasZoom === "function") {
     setExtrasZoom(factor);

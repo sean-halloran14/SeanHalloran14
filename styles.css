@@ -117,9 +117,8 @@ body {
   will-change: transform;
 }
 
-/* Planets still hidden out in the world (hunt.js): each has its own small
-   canvas, placed on the page so it scrolls with everything else. */
-.wild-planet {
+/* The Work town (town.js): one canvas on the page, under the orb. */
+.town-layer {
   position: absolute;
   left: 0;
   top: 0;
@@ -128,34 +127,13 @@ body {
   will-change: transform;
 }
 
-/* ---------- The planet hunt: radar ---------- */
-.radar {
+/* ---------- Stardust meter and boost (extras.js) ---------- */
+.meters {
   position: fixed;
   right: 22px;
   bottom: 22px;
   z-index: 15;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
 }
-.radar[hidden] { display: none; }
-.radar-dial {
-  width: 104px;
-  height: 104px;
-  border-radius: 50%;
-  box-shadow: 4px 4px 0 var(--brown-deep);
-}
-.radar-count {
-  padding: 2px 10px;
-  border: 2px solid var(--brown-deep);
-  border-radius: 999px;
-  background: var(--cream);
-  color: var(--ink);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
-}
-/* Stardust meter and boost (extras.js). */
 .stardust {
   display: flex;
   align-items: center;
@@ -187,36 +165,6 @@ body {
   cursor: pointer;
 }
 .boost-button:disabled { opacity: 0.45; cursor: default; }
-.radar-button {
-  padding: 6px 12px;
-  border: 2px solid var(--brown-deep);
-  border-radius: 999px;
-  background: var(--sunset);
-  color: var(--cream);
-  font: 600 0.78rem "Inter", sans-serif;
-  box-shadow: 3px 3px 0 var(--brown-deep);
-  cursor: pointer;
-}
-.radar-button:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--brown-deep); }
-
-/* "You found them all" message. */
-.hunt-toast {
-  position: fixed;
-  left: 50%;
-  top: 22px;
-  z-index: 25;
-  margin: 0;
-  padding: 10px 20px;
-  border: 3px solid var(--brown-deep);
-  border-radius: 999px;
-  background: var(--sun-glow);
-  color: var(--ink);
-  font: 700 1rem "Space Grotesk", sans-serif;
-  box-shadow: 4px 4px 0 var(--brown-deep);
-  transform: translateX(-50%) rotate(-2deg);
-}
-.hunt-toast[hidden] { display: none; }
-.hunt-toast.is-popping { animation: toast-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes toast-pop {
   from { transform: translateX(-50%) rotate(-2deg) scale(0.5); opacity: 0; }
   to { transform: translateX(-50%) rotate(-2deg) scale(1); opacity: 1; }
@@ -249,7 +197,7 @@ body {
 }
 .mark span { color: var(--sunset); }
 
-/* Table of contents of found planets (hunt.js). */
+/* The Contents list of places (places.js). */
 .top-bar {
   position: fixed;
   top: 20px;
@@ -322,6 +270,11 @@ body {
   background: var(--cream);
   font-size: 0.8rem;
 }
+.contents-item small.contents-go {
+  margin-top: 2px;
+  color: var(--sunset);
+  font-weight: 700;
+}
 .contents-item small {
   display: block;
   font: 500 0.66rem "JetBrains Mono", monospace;
@@ -329,56 +282,6 @@ body {
   text-transform: uppercase;
   color: var(--ink-soft);
 }
-.contents-hidden {
-  padding: 6px 10px;
-  border: 2px dashed var(--tan-dark);
-  border-radius: 12px;
-  color: var(--ink-soft);
-  font: 500 0.8rem "JetBrains Mono", monospace;
-}
-.contents-note { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-soft); }
-.contents-note a { color: var(--sunset); font-weight: 600; }
-.constellation {
-  display: block;
-  width: 100%;
-  height: 96px;
-  margin: 0 0 10px;
-  border-radius: 12px;
-  background: var(--navy);
-}
-
-/* Points at the first hidden planet (hunt.js places it). */
-.coach {
-  position: fixed;
-  z-index: 12;
-  max-width: 220px;
-  margin: 0;
-  padding: 8px 12px;
-  border: 2px solid var(--brown-deep);
-  border-radius: 14px;
-  background: var(--sun-glow);
-  color: var(--ink);
-  font: 600 0.8rem "Inter", sans-serif;
-  box-shadow: 3px 3px 0 var(--brown-deep);
-  pointer-events: none;
-  transform: translate(-100%, -50%);
-}
-.coach[hidden] { display: none; }
-.coach::after {
-  content: "";
-  position: absolute;
-  right: -18px;
-  top: 50%;
-  border: 8px solid transparent;
-  border-left-color: var(--brown-deep);
-  transform: translateY(-50%);
-}
-.coach .hint-touch { display: none; }
-@media (hover: none) {
-  .coach .hint-pointer { display: none; }
-  .coach .hint-touch { display: inline; }
-}
-
 /* ---------- Plain one-page view (plain-view.js) ----------
    Hides the game and shows the planet list as ordinary cards. */
 .plain-intro { display: none; }
@@ -387,16 +290,16 @@ html.is-plain body { touch-action: auto; background: #0d1a26; }
 .is-plain .page { width: auto; height: auto; overflow: visible; background: none; }
 .is-plain .page-bg,
 .is-plain .sun-layer,
-.is-plain .wild-planet,
-.is-plain .radar,
+.is-plain .town-layer,
+.is-plain .meters,
 .is-plain .hint,
-.is-plain .coach,
 .is-plain .pointer-effects,
 .is-plain .planet-panel,
 .is-plain .planet-label,
-.is-plain .hunt-toast,
 .is-plain .contents,
-.is-plain .contents-button { display: none !important; }
+.is-plain .contents-button,
+.is-plain .map-button,
+.is-plain .map { display: none !important; }
 .is-plain .plain-intro {
   display: block;
   max-width: 760px;
@@ -486,7 +389,6 @@ html.is-plain body { touch-action: auto; background: #0d1a26; }
   text-decoration: none;
   box-shadow: 3px 3px 0 var(--brown-deep);
 }
-.contents-note:empty { display: none; }
 
 /* Small hint at the bottom; fades away after the first click. */
 .hint {
@@ -663,7 +565,7 @@ body.is-flying { cursor: crosshair; user-select: none; }
   .mark { top: 14px; left: 16px; }
   .top-bar { top: 14px; left: 64px; }
   .top-link { padding: 3px 10px; font-size: 0.72rem; }
-  /* The hint moves to the top (under the shortcuts) so it doesn't run into the radar. */
+  /* The hint moves to the top (under the shortcuts) so it doesn't run into the stardust meter. */
   .hint {
     top: 84px;
     bottom: auto;
@@ -675,8 +577,7 @@ body.is-flying { cursor: crosshair; user-select: none; }
     text-align: right;
     white-space: normal;
   }
-  .radar { right: 14px; bottom: 14px; }
-  .radar-dial { width: 84px; height: 84px; }
+  .meters { right: 14px; bottom: 14px; }
 }
 
 /* ---------- Zoom buttons (zoom.js) ----------
@@ -713,7 +614,7 @@ body.is-flying { cursor: crosshair; user-select: none; }
 /* ---------- Thumb joystick (joystick.js) ----------
    Only on touch screens. It sits in the bottom corner under the thumb of the
    hand holding the phone (right by default; the small arrows button swaps it
-   to the left, and the radar moves to the other corner). */
+   to the left, and the stardust meter moves to the other corner). */
 .joystick { display: none; }
 @media (hover: none) and (pointer: coarse) {
   .joystick {
@@ -769,11 +670,11 @@ body.is-flying { cursor: crosshair; user-select: none; }
     line-height: 1;
     box-shadow: 2px 2px 0 var(--brown-deep);
   }
-  /* The radar takes the other bottom corner. */
-  .radar { right: auto; left: calc(14px + env(safe-area-inset-left, 0px)); }
+  /* The stardust meter takes the other bottom corner. */
+  .meters { right: auto; left: calc(14px + env(safe-area-inset-left, 0px)); }
   .is-stick-left .joystick { right: auto; left: calc(18px + env(safe-area-inset-left, 0px)); }
   .is-stick-left .joystick-swap { left: auto; right: -14px; }
-  .is-stick-left .radar { left: auto; right: calc(14px + env(safe-area-inset-right, 0px)); }
+  .is-stick-left .meters { left: auto; right: calc(14px + env(safe-area-inset-right, 0px)); }
   .is-plain .joystick { display: none; }
   /* Zoom sits above the stick, in reach of the same thumb. */
   .zoom {
@@ -791,4 +692,315 @@ body.is-flying { cursor: crosshair; user-select: none; }
   .page-bg-base { animation: none; }
   .planet-label.is-popping, .planet-panel.is-popping { animation: none; }
   .joystick-knob { transition: none; }
+}
+
+/* ---------- Inside the Work building (office.js) ----------
+   A full-screen walk-around office with a text box at the bottom. */
+.office {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: #17110c;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+.office[hidden] { display: none; }
+.office.is-entering { animation: office-in 0.45s ease-out; }
+@keyframes office-in {
+  from { opacity: 0; filter: brightness(0); }
+  to { opacity: 1; filter: none; }
+}
+.office-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.office-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--brown-deep);
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1;
+  box-shadow: 3px 3px 0 var(--brown-deep);
+  cursor: pointer;
+}
+.office-help {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(23, 17, 12, 0.7);
+  color: var(--cream);
+  font: 500 0.8rem "JetBrains Mono", monospace;
+  white-space: nowrap;
+}
+.office-dialog {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  width: min(680px, calc(100% - 32px));
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  min-height: 112px;
+  padding: 16px 44px 16px 20px;
+  border: 4px solid var(--brown-deep);
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 0 0 4px var(--cream), 0 0 0 7px var(--brown-deep), 6px 8px 0 7px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.office-dialog[hidden] { display: none; }
+.office-dialog-text {
+  margin: 0;
+  font: 600 1.05rem/1.5 "Space Grotesk", sans-serif;
+  white-space: pre-wrap;
+}
+.office-dialog-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.office-dialog-links:empty { display: none; }
+.office-dialog-links a,
+.office-dialog-links button {
+  padding: 6px 12px;
+  border: 3px solid var(--brown-deep);
+  border-radius: 10px;
+  background: var(--sun-glow);
+  color: var(--ink);
+  font: 700 0.9rem "Space Grotesk", sans-serif;
+  text-decoration: none;
+  box-shadow: 2px 2px 0 var(--brown-deep);
+  cursor: pointer;
+}
+.office-dialog-links button { background: var(--sage); }
+.office-dialog-more {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  color: var(--ember);
+  animation: office-more 0.8s ease-in-out infinite alternate;
+}
+.office-dialog-more[hidden] { display: none; }
+@keyframes office-more { to { transform: translateY(4px); } }
+/* Touch controls: a d-pad bottom left and an A button bottom right. */
+.office-pad, .office-a { display: none; }
+.office.is-touch .office-help { display: none; }
+.office.is-touch .office-pad {
+  display: grid;
+  position: absolute;
+  left: 18px;
+  bottom: 24px;
+  grid-template: repeat(3, 56px) / repeat(3, 56px);
+}
+.office.is-touch .office-a {
+  display: block;
+  position: absolute;
+  right: 22px;
+  bottom: 70px;
+  width: 76px;
+  height: 76px;
+  border: 4px solid var(--brown-deep);
+  border-radius: 50%;
+  background: var(--ember);
+  color: var(--cream);
+  font: 700 1.5rem "Space Grotesk", sans-serif;
+  box-shadow: 3px 3px 0 var(--brown-deep);
+}
+.office-pad button {
+  border: 3px solid var(--brown-deep);
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1.1rem;
+  box-shadow: 2px 2px 0 var(--brown-deep);
+  touch-action: none;
+}
+/* While the text box is up, tapping it moves the text on (the controls step aside). */
+.office.has-dialog .office-pad, .office.has-dialog .office-a { display: none; }
+.office-pad-up { grid-area: 1 / 2; }
+.office-pad-left { grid-area: 2 / 1; }
+.office-pad-right { grid-area: 2 / 3; }
+.office-pad-down { grid-area: 3 / 2; }
+@media (prefers-reduced-motion: reduce) {
+  .office.is-entering, .office-dialog-more { animation: none; }
+}
+
+/* ---------- The invitation to go inside the Work building (town.js) ----------
+   Pops up above the building while the orb flies over it; like the planet
+   label, but it's a button. */
+.town-prompt {
+  position: fixed;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 240px;
+  padding: 8px 14px 9px 12px;
+  border: 3px solid var(--brown-deep);
+  border-left: 9px solid var(--sunset);
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--brown-deep);
+  transform: translate(-50%, -100%) rotate(-2deg);
+  transform-origin: 50% 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.town-prompt[hidden] { display: none; }
+.town-prompt.is-popping { animation: label-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.town-prompt:hover, .town-prompt:focus-visible { background: #fff6e3; }
+.town-prompt-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+.town-prompt-text { font-family: "Space Grotesk", sans-serif; font-weight: 700; line-height: 1.2; }
+.is-plain .town-prompt { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .town-prompt.is-popping { animation: none; }
+}
+
+/* ---------- The map and fast travel (map.js) ----------
+   A card over a dimmed screen: a painted strip of the shore with the
+   places on it as buttons, and a dot for where you are. */
+.map {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(14, 10, 24, 0.55);
+}
+.map[hidden] { display: none; }
+.map-card {
+  width: min(920px, 100%);
+  padding: 14px 16px 12px;
+  border: 3px solid var(--brown-deep);
+  border-radius: 18px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 6px 6px 0 var(--brown-deep);
+  animation: label-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: none;
+}
+.map-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.map-title {
+  margin: 0;
+  font: 500 0.78rem "JetBrains Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.map-close {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--brown-deep);
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 1.3rem;
+  line-height: 1;
+  box-shadow: 2px 2px 0 var(--brown-deep);
+  cursor: pointer;
+}
+.map-view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  min-height: 190px;
+  border: 3px solid var(--brown-deep);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.map-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-pins { position: absolute; inset: 0; }
+.map-pin {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 170px;
+  padding: 4px 9px 5px;
+  border: 2px solid var(--brown-deep);
+  border-left: 6px solid var(--sunset);
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--brown-deep);
+  transform: translate(-50%, 14px) rotate(-2deg);
+  font: 700 0.78rem/1.2 "Space Grotesk", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.map-pin small {
+  font: 500 0.6rem "JetBrains Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.map-pin:hover, .map-pin:focus-visible { background: var(--sun-glow); }
+.map-you {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.map-you-dot {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--brown-deep);
+  border-radius: 50%;
+  background: var(--sun-glow);
+  box-shadow: 0 0 0 4px rgba(246, 165, 94, 0.45);
+  animation: map-you-pulse 1.2s ease-in-out infinite alternate;
+}
+.map-you-label {
+  padding: 1px 6px;
+  border: 2px solid var(--brown-deep);
+  border-radius: 999px;
+  background: var(--cream);
+  font: 700 0.66rem "JetBrains Mono", monospace;
+}
+.map-you.is-off-left { transform: translate(0, -50%); }
+.map-you.is-off-right { transform: translate(-100%, -50%); }
+@keyframes map-you-pulse { to { box-shadow: 0 0 0 8px rgba(246, 165, 94, 0.15); } }
+.map-note { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-soft); }
+/* The fast-travel flash. */
+.travel-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--sun-core);
+  pointer-events: none;
+  opacity: 0;
+}
+.travel-flash[hidden] { display: none; }
+.travel-flash.is-flashing { animation: travel-flash 0.45s ease-in-out; }
+@keyframes travel-flash {
+  0% { opacity: 0; }
+  45%, 55% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (max-width: 600px) {
+  .map-view { aspect-ratio: auto; height: 260px; }
+  /* Narrow: just each place's short tag, so they don't run into each other
+     (the full title is still the button's label for screen readers). */
+  .map-pin { padding: 4px 9px; transform: translate(-50%, 10px) rotate(-2deg); }
+  .map-pin span { display: none; }
+  .map-pin small { font: 700 0.72rem "Space Grotesk", sans-serif; letter-spacing: 0.02em; color: var(--ink); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-card, .map-you-dot { animation: none; }
 }

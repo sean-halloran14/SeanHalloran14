@@ -13,7 +13,6 @@
 //   Wheel / trackpad - nudges it.
 //   SH. mark         - flies it home to the middle of the world.
 //
-// Flying close to a hidden planet pulls it in (hunt.js, setGravityCatch).
 // The world never ends: when the orb nears the edge of the page, the whole
 // world slides back under it (setWorldRecentred) and the view scrolls by the
 // same amount, so nothing visibly moves.
@@ -117,13 +116,55 @@ function setOrbMovedBy(dx, dy) {
 
 function setOrbHome() {
   // Sends the orb back to where it started, world (0, 0) (the SH. mark).
-  // If that's far away, the world slides first so home is just off screen,
-  // then the orb glides the last stretch.
+  setOrbFlownTo(0, 0);
+}
+
+function setOrbTeleported(worldX, worldY) {
+  // Fast travel (map.js): puts the orb at a world point (the copy round the
+  // loop nearest it) straight away, the view centred on it. The world
+  // slides under the page so the point lands where the orb already is,
+  // then the orb steps the last few px (shifts come in whole steps).
+  const origin = getWorldOrigin();
+  const orb = getOrbPagePoint();
+  if (typeof getNearestLoopX === "function") {
+    worldX = getNearestLoopX(worldX, origin.x + orb.x);
+  }
+  const awayX = worldX - origin.x - orb.x;
+  const awayY = worldY - origin.y - orb.y;
+  const step = getShiftStep();
+  const jumpX = Math.round(awayX / step) * step;
+  const jumpY = Math.round(awayY / step) * step;
+  if (jumpX !== 0 || jumpY !== 0) {
+    setWorldShift(jumpX, jumpY);
+    if (typeof setSunShift === "function") {
+      setSunShift(-jumpX, -jumpY);
+    }
+  }
+  setCentrePagePosition(orb.x + awayX - jumpX, orb.y + awayY - jumpY);
+  if (typeof sunState !== "undefined") {
+    sunState.hasPosition = false;   // the drawn orb jumps there too, no glide...
+    sunState.motionX = null;        // ...and doesn't take the jump for a burst of speed
+  }
+  flightState.cameraSnap = true;
+  setCameraFrame(0);
+  if (typeof setSunFrame === "function") {
+    setSunFrame(typeof getSunSeconds === "function" ? getSunSeconds() : 0);
+  }
+}
+
+function setOrbFlownTo(worldX, worldY) {
+  // Sends the orb to a world point (the copy round the loop nearest it):
+  // the SH. mark's home, or a place (places.js). If that's far away, the
+  // world slides first so the point is just off screen, then the orb
+  // glides the last stretch.
   const origin = getWorldOrigin();
   let pageBox = flightPage.getBoundingClientRect();
   const orb = getOrbPagePoint();
-  const homeX = -origin.x;
-  const homeY = -origin.y;
+  if (typeof getNearestLoopX === "function") {
+    worldX = getNearestLoopX(worldX, origin.x + orb.x);
+  }
+  const homeX = worldX - origin.x;
+  const homeY = worldY - origin.y;
   const awayX = homeX - orb.x;
   const awayY = homeY - orb.y;
   const away = Math.hypot(awayX, awayY);
@@ -143,7 +184,7 @@ function setOrbHome() {
     pageBox = flightPage.getBoundingClientRect();
   }
   const newOrigin = getWorldOrigin();
-  setCentrePoint(pageBox.left - newOrigin.x, pageBox.top - newOrigin.y);
+  setCentrePoint(pageBox.left + worldX - newOrigin.x, pageBox.top + worldY - newOrigin.y);
   if (flightMotion.matches && typeof setSunFrame === "function") {
     setSunFrame(0);
   }
@@ -160,8 +201,8 @@ function setWorldShift(dx, dy) {
   if (typeof setSunShift === "function") {
     setSunShift(dx, dy);
   }
-  if (typeof setHuntShift === "function") {
-    setHuntShift(dx, dy);
+  if (typeof setTownShift === "function") {
+    setTownShift(dx, dy);
   }
   if (typeof setPointerShift === "function") {
     setPointerShift(dx, dy);
@@ -204,7 +245,7 @@ function getIsFlightBlocked(event) {
   if (event.button !== 0 || getIsPlainView()) {
     return true;
   }
-  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .radar, .contents, .joystick")) {
+  if (event.target && event.target.closest && event.target.closest("a, button, input, .planet-panel, .planet-label, .meters, .contents, .joystick")) {
     return true;
   }
   if (typeof getIsOverPlanet === "function" && getIsOverPlanet(event.clientX, event.clientY)) {

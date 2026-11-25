@@ -6,7 +6,7 @@
 // in the bottom corner under the thumb of the hand holding the phone: drag
 // the knob and the orb flies that way, faster the further it's pushed
 // (flight.js, setFlightStick). The small arrows button swaps it to the other
-// side for left-handed use (the radar swaps over too); the choice is
+// side for left-handed use (the stardust meter swaps over too); the choice is
 // remembered on this device.
 // CSS shows it only on touch screens (styles.css, .joystick).
 // =============================================================================

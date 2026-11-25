@@ -32,7 +32,7 @@
   <!-- The mark also brings the view back to the orb. -->
   <a class="mark" href="#" aria-label="Sean Halloran, data engineer. Back to the centre">SH<span>.</span></a>
 
-  <!-- Always-visible shortcuts: the table of contents (hunt.js), the résumé,
+  <!-- Always-visible shortcuts: the places to visit (places.js), the résumé,
        email, and a plain one-page view of everything (plain-view.js).
        Keep the Résumé and Email links in step with the About and Contact items. -->
   <div class="top-bar">
@@ -41,18 +41,11 @@
     <a class="top-link top-email" href="mailto:seanhalloran14@gmail.com">Email</a>
     <button class="top-link plain-button" type="button">Just show me the work</button>
   </div>
-  <nav class="contents" id="contents" hidden aria-label="Projects found so far">
-    <p class="contents-heading">Found so far</p>
-    <!-- Each found project lights a star; find them all to finish the shape. -->
-    <canvas class="constellation" aria-hidden="true"></canvas>
+  <!-- The places in the world (places.js): fly to one, or open what's in it. -->
+  <nav class="contents" id="contents" hidden aria-label="Places">
+    <p class="contents-heading">Places</p>
     <ul class="contents-list"></ul>
-    <p class="contents-note"></p>
   </nav>
-  <!-- Points at the first hidden planet until it's caught (hunt.js). -->
-  <p class="coach" hidden aria-hidden="true">
-    <span class="hint-pointer">A hidden project! Hold the mouse on it to fly there (or use the arrow keys).</span>
-    <span class="hint-touch">A hidden project! Steer to it with the stick (or hold your finger on it).</span>
-  </p>
 
   <div class="page">
     <!-- Background: background.js paints these; styles.css drifts the base slowly. -->
@@ -69,19 +62,21 @@
         <p class="plain-intro-text">Everything from the projects, on one page.</p>
       </header>
 
-      <!-- THE CONTENT. Each item is one planet, in order from the innermost
-           orbit outward. sun.js reads it to fill the planet's label and panel.
+      <!-- THE CONTENT. Each top-level item is a place in the world (a building
+           in the forest: town.js), and the items marked as moons after it are
+           the things inside it (stations in its room: office.js). sun.js
+           reads it to fill the labels and panels; places.js lists it.
            It is hidden from view but read by screen readers and search engines,
-           and Tab moves through it (each item highlights its planet).
+           and Tab moves through it (Enter opens an item's panel).
 
            Per item:
              data-tag          small label above the title
-             data-kind="moon"  makes the item a moon of the planet listed before it;
-                               items without it are planets (a company, a
-                               university, About me) circling the cartoon of me
-             data-icon         the icon: company, university, about, pipeline,
+             data-kind="moon"  makes the item one of the things inside the place
+                               listed before it; items without it are places
+             data-icon         for a place, its building: company, university or
+                               about; for a thing inside, its station: pipeline,
                                migrate, diagnostics, docs, pos, outdoors, music,
-                               bar or contact (drawn in sun.js)
+                               bar or contact
              .planet-title     the title (also the hover label)
              .planet-text      a short description (several make several paragraphs)
              .planet-tools     tools / skills shown as chips (optional)
@@ -91,7 +86,7 @@
         <li data-tag="Work" data-icon="company">
           <a class="planet-title" href="#">Data engineering at a hospitality group</a>
           <p class="planet-text">I work remotely from Salt Lake City as a data engineer for a hospitality group in Virginia that runs vending, micro-markets, office coffee and restaurants. I got into data through an internship there, and now I build and look after its data pipelines in Microsoft Fabric, and the reports that save its managers time.</p>
-          <p class="planet-text">Each moon circling this planet is a project from there.</p>
+          <p class="planet-text">Each station in the office is a project from there.</p>
           <ul class="planet-tools"><li>Python</li><li>SQL</li><li>Microsoft Fabric</li><li>Power BI</li></ul>
         </li>
         <li data-tag="Pipelines" data-icon="pipeline" data-kind="moon">
@@ -135,7 +130,7 @@
         <li data-tag="About" data-icon="about">
           <a class="planet-title" href="#">About me</a>
           <p class="planet-text">My favorite part of any project is the design: working out how to represent a messy problem in code until it finally makes sense. If something doesn't make sense, I'll find a way to make it make sense.</p>
-          <p class="planet-text">I'm curious about most corners of computer science. This website is my first of its kind, and it has been far more fun than it probably should be. The moons circling this planet are the rest of me.</p>
+          <p class="planet-text">I'm curious about most corners of computer science. This website is my first of its kind, and it has been far more fun than it probably should be. Everything inside the cabin is the rest of me.</p>
           <ul class="planet-tools"><li>Python</li><li>SQL</li><li>DAX</li><li>Microsoft Fabric</li><li>Delta Lake</li><li>DuckDB</li><li>Polars</li><li>Power BI</li><li>Git</li><li>REST APIs</li><li>Django</li></ul>
           <div class="planet-links"><a href="resume.pdf">Download résumé</a></div>
         </li>
@@ -165,8 +160,8 @@
   </div>
 
   <p class="hint" aria-hidden="true">
-    <span class="hint-pointer">hold to fly the orb &middot; ride the sky ribbons &middot; space to boost &middot; avoid black holes</span>
-    <span class="hint-touch">drag the stick to fly &middot; ride the sky ribbons &middot; avoid black holes</span>
+    <span class="hint-pointer">hold to fly &middot; visit the buildings below to see my work &middot; space to boost</span>
+    <span class="hint-touch">drag the stick to fly &middot; visit the buildings below to see my work</span>
   </p>
 
   <!-- Small label next to a hovered or focused planet (sun.js fills it in). -->
@@ -185,17 +180,13 @@
     <div class="planet-panel-links"></div>
   </section>
 
-  <!-- The planet hunt (hunt.js): radar, counter and skip / replay button. -->
-  <aside class="radar" hidden aria-label="Project radar">
-    <canvas class="radar-dial" aria-hidden="true"></canvas>
-    <span class="radar-count" aria-live="polite"></span>
-    <button class="radar-button" type="button"></button>
+  <!-- The stardust meter and boost button (extras.js). -->
+  <aside class="meters" aria-label="Stardust">
     <div class="stardust" title="Stardust: collect it to boost">
       <span class="stardust-bar" aria-hidden="true"><span class="stardust-fill"></span></span>
       <button class="boost-button" type="button" disabled>Boost</button>
     </div>
   </aside>
-  <p class="hunt-toast" hidden role="status">You found every project!</p>
 
   <!-- Thumb joystick for flying on touch screens (joystick.js); hidden on
        mouse and keyboard devices by styles.css. -->
@@ -215,7 +206,10 @@
 
   <script src="background.js"></script>
   <script src="sun.js"></script>
-  <script src="hunt.js"></script>
+  <script src="town.js"></script>
+  <script src="office.js"></script>
+  <script src="places.js"></script>
+  <script src="map.js"></script>
   <script src="flight.js"></script>
   <script src="joystick.js"></script>
   <script src="extras.js"></script>

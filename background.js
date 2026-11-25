@@ -9,9 +9,14 @@
 // deep space, a banded sky with swirls, sky ribbons (the currents) and stars,
 // two mountain ranges with snow caps, forested hills with a glowing river,
 // a rocky shore, and a lake that mirrors everything above it (so flying down
-// never runs out of world either). Along it, scenes take turns: a sunset with
-// a sunburst, a moonlit night, a pastel dawn, each with its sun or moon in a
-// valley notch and a river winding down from it. It's made from the world
+// never runs out of world either). Along it, scenes take turns, each with a
+// valley notch and a river winding down from it. The world is a ring going
+// round the sun: the sun stays at one spot on the screen, and flying sideways
+// carries the orb round it, so the sun rises and sets as it travels (and a
+// moon rises in its place at night). The painting's colours follow the same
+// day (BG.dayWidth): pastel dawn while the sun rises, warm sunset while it
+// sets, moonlit night while it's down. The sun and moon are drawn by the live
+// layer, only where there's open sky in front of them. It's made from the world
 // position, so the world never ends: flight.js keeps the orb near the middle
 // of the page by sliding the world underneath (setBackgroundShift). The
 // aurora flow and glow (7) move over the sky.
@@ -175,12 +180,25 @@ const BG = {
   // Everything is generated from the world position, so it goes on forever.
   horizon: 300,            // where the sky meets the far mountains, px
   shoreLevel: 1050,        // where the forest meets the lake, px (the lake mirrors all above)
-  sceneWidth: 3600,        // one scene (its sun or moon, valley and river) every this many px
-  valleyWidth: 700,        // how wide the notch round each sun is, px
+  sceneWidth: 3600,        // one scene (its valley, river and moon) every this many px
+  valleyWidth: 700,        // how wide each scene's valley notch is, px
   farHeight: 650,          // how tall the far mountain range rises, px
   midHeight: 430,          // ...the nearer range
   hillHeight: 200,         // ...the forested hills
   treeSpacing: 66,         // distance between pine trees, px
+  // Clearings in the forest for the places (town.js stands a building in
+  // each, by its item's data-icon): no trees, a meadow floor, a ragged edge.
+  // The trees just in front of each building (frontHalfWidth either side,
+  // clearingFrontDepth down) are drawn by town.js instead, over the
+  // building, so their tops aren't hidden behind it. Landscape px; at most
+  // three (the shader's array size).
+  clearingFloor: 900,      // the buildings' feet (y; the shore is at shoreLevel)
+  clearingFrontDepth: 230,
+  clearings: [
+    { place: "company", x: 0, halfWidth: 720, depth: 230, frontHalfWidth: 740 },
+    { place: "university", x: -2300, halfWidth: 340, depth: 210, frontHalfWidth: 220 },
+    { place: "about", x: 2300, halfWidth: 270, depth: 170, frontHalfWidth: 170 },
+  ],
   // Sky ribbons: swirling bands high in the sky (the currents in extras.js),
   // with stars streaming along them. They wind along evenly spaced levels of
   // one smooth field, so they never cross, and fade out above the peaks.
@@ -209,6 +227,32 @@ const BG = {
     "#45a062",             // PINE_LIGHT
     "#0a0814",             // INK
   ],
+
+  // The sun and moon: pinned to the screen. The world turns round them as the
+  // orb flies sideways, so they rise and set with the distance travelled, and
+  // the painting's colours follow (dawn, sunset, night).
+  dayWidth: 26000,         // landscape px of sideways flying from one sunrise to the next; the whole
+                           // world repeats every this many px too (one day per trip round)
+  dayStart: 0.1,           // where in the day the orb starts (0 = sunrise; see dayShare)
+  dayShare: 0.6,           // share of the day the sun is up (sunset at this point; the rest is night)
+  dayDrift: 600,           // seconds for the day to go all the way round by itself, even sitting still
+  dayRepaint: 0.008,       // repaint the landscape's colours once the day has drifted this far (share of a day)
+  twilightFlush: 1,        // how much sunrise and sunset flush the colours (0 = not at all)
+  twilightGlow: 0.8,       // how strong the glow over the sky is round sunrise and sunset (0-1)
+  nightDeepness: 0.55,     // how much darker and bluer the night gets (0-1)
+  twilightSpan: 0.8,       // how long sunrise and sunset colours last: how far from the horizon they reach (sun heights, 0-1)
+  // Like the Earth: the loop has a day side and a night side. The sun hangs
+  // over the middle of the day side and the moon over the middle of the
+  // night side. Wherever the orb is, the one that's up there shows: right
+  // overhead in the middle of its side, lower and further across the screen
+  // towards the horizon, setting as the orb flies away from it.
+  sunSwing: 0.42,          // how far across the screen they sit when on the horizon (share of the screen from the middle)
+  sunLow: 380,             // landscape y they rise from and set to (just behind the far mountains), px
+  sunHigh: -480,           // landscape y at their highest (above the tallest peaks), px
+  sunRadius: 95,           // landscape px (shrinks with the zoom like the landscape)
+  moonRadius: 62,          // landscape px
+  moonOverlap: 0.08,       // the moon rises this much of a day before sunset and sets this much after sunrise,
+                           // so round twilight the sun and moon share the sky
 
   // Canvas
   margin: 260,             // extra picture around the page so drift/warp edges never show
@@ -267,6 +311,9 @@ console.info("Background swirl layout: " + swirlSeed + " (pin it with BG.swirlSe
 // Everything the swirl animation needs between frames.
 const swirlState = {
   ready: false,
+  pendingShift: null,          // a world shift the view hasn't scrolled to match yet (setBackgroundShift)
+  dayDrift: 0,                 // how far the day has drifted by itself (share of a day; BG.dayDrift)
+  paintedDrift: 0,             // ...and how far it had when the landscape was last painted
   gl: null,
   program: null,
   texture: null,
@@ -329,12 +376,6 @@ function getHexColour(hex) {
     parseInt(digits.slice(2, 4), 16),
     parseInt(digits.slice(4, 6), 16),
   ];
-}
-
-function getIsSkyWorld(worldY) {
-  // True where a world point (world px, y down) is open sky above the
-  // highest peaks; extras.js keeps its black holes up there.
-  return worldY / BG.zoom < BG.horizon - BG.farHeight - 150;
 }
 
 function getColourValue(name) {
@@ -966,7 +1007,7 @@ function setSwirlSource(seconds) {
   setRings(context, seconds);
   setRays(context, seconds);
   if (typeof setExtrasDrawn === "function") {
-    setExtrasDrawn(context, seconds);   // black holes and stardust (extras.js)
+    setExtrasDrawn(context, seconds);   // stardust (extras.js)
   }
 }
 
@@ -1012,6 +1053,11 @@ uniform vec2 u_worldOffset;   // the picture's top-left in the world, canvas px
 uniform float u_shimmer;      // strength of the drifting light rays (0 = off)
 uniform float u_riverFlow;    // how fast the streaks run along the sky ribbons
 uniform float u_waterGlints;  // brightness of the glints on water (0 = off)
+uniform vec4 u_sun;           // the sun: x, y, radius (canvas pixels), height (-1 midnight, 0 horizon, 1 midday)
+uniform vec4 u_moon;          // the moon: x, y, radius (canvas pixels), how much it's up (0-1)
+uniform float u_sunRising;    // 1 in the morning half of the day (sunrise), 0 in the evening half (sunset)
+uniform vec3 u_twilight;      // how strong: sunrise/sunset flush (0-1), sky glow (0-1), night (0-1)
+uniform float u_twilightSpan; // how far from the horizon (in sun heights) the sunrise/sunset colours reach
 
 float getHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -1209,11 +1255,95 @@ void main() {
     float shimmer = getNoise(vec2(worldPosition.x / 7.0 + u_time * 0.6, worldPosition.y / 180.0 - u_time * 0.15));
     background = min(background * (1.0 + (floor(shimmer * 3.0) / 2.0 - 0.4) * u_shimmer), vec3(1.0));
   }
+  // The sun's height (the painting's own colours already follow the time of
+  // day): a low sun glows redder.
+  float sunHeight = u_sun.w;
+  float daylight = smoothstep(-0.6, 0.35, sunHeight);
+  float lowSun = (1.0 - smoothstep(0.0, 0.5, abs(sunHeight))) * daylight;
+  float sunShown = smoothstep(-0.2, 0.02, sunHeight);
+  float moonShown = u_moon.w;
+  vec3 sunGold = vec3(1.0, 0.79, 0.3);
+  vec3 sunWarm = mix(sunGold, vec3(0.95, 0.45, 0.17), lowSun);
+  vec2 toMoon = position - u_moon.xy;
+  float moonDistance = length(toMoon);
+  vec2 toSun = position - u_sun.xy;
+  float sunDistance = length(toSun);
+  float sunRadius = u_sun.z;
+
+  // Twilight: round sunrise and sunset the whole picture flushes with
+  // colour (rosy pinks at sunrise, fiery reds at sunset), with a great glow
+  // over the sky where the sun is going down or coming up; at night it all
+  // sinks into a deep blue.
+  float twilight = 1.0 - smoothstep(0.0, u_twilightSpan, abs(sunHeight + 0.04));
+  float deepNight = smoothstep(0.1, -0.85, sunHeight);
+  vec3 duskLow = mix(vec3(1.0, 0.32, 0.12), vec3(1.0, 0.26, 0.42), u_sunRising);
+  vec3 duskHigh = mix(vec3(0.62, 0.16, 0.5), vec3(0.5, 0.22, 0.8), u_sunRising);
+  float grey = dot(background, vec3(0.299, 0.587, 0.114));
+  background = clamp(mix(vec3(grey), background, 1.0 + 0.7 * twilight * u_twilight.x), 0.0, 1.0);
+  float upFromSun = max(u_sun.y - position.y, 0.0) / (sunRadius * 14.0);
+  float glowReach = exp(-upFromSun * 1.1) * exp(-abs(toSun.x) / (sunRadius * 30.0));
+  vec3 dusk = mix(duskLow, duskHigh, clamp(upFromSun, 0.0, 1.0));
+  if (isSky) {
+    // Screen blend, so the glow brightens without washing out the ink.
+    float glow = twilight * u_twilight.y * (0.35 + 0.65 * glowReach);
+    background = 1.0 - (1.0 - background) * (1.0 - dusk * glow);
+  } else {
+    // The land and water catch the light too (alpenglow), more gently.
+    background = mix(background, background * (duskLow * 1.3 + 0.25), twilight * u_twilight.x * 0.45);
+  }
+  background = mix(background, background * vec3(0.5, 0.58, 0.95), deepNight * u_twilight.z);
+
   if (isWater) {
-    // Glints: short flat streaks of light drifting across the water.
+    // Glints: short flat streaks of light drifting across the water, and a
+    // column of them under the sun.
     float glint = getNoise(vec2(worldPosition.x / 9.0 + u_time * 0.5, worldPosition.y / 1.5));
     glint *= getNoise(vec2(worldPosition.x / 40.0 - u_time * 0.2, worldPosition.y / 6.0));
-    background = min(background + vec3(smoothstep(0.45, 0.6, glint) * u_waterGlints), vec3(1.0));
+    float sparkle = smoothstep(0.45, 0.6, glint);
+    float column = exp(-abs(toSun.x) / (sunRadius * 0.9)) * step(u_sun.y, position.y) * sunShown;
+    float moonColumn = exp(-abs(toMoon.x) / (u_moon.z * 0.9)) * step(u_moon.y, position.y) * moonShown;
+    background = min(background + vec3(sparkle * u_waterGlints * max(daylight, 0.4)) + sunWarm * column * (0.12 + sparkle * 0.8) + vec3(0.75, 0.85, 1.0) * moonColumn * sparkle * 0.6, vec3(1.0));
+  }
+
+  // The sun: a sunburst of wavy rays and a warm glow, and its disc. It only
+  // shows where there's sky in front of it (the land and water hide it), and
+  // the sky ribbons pass in front of the disc.
+  if (sunShown > 0.0) {
+    background = min(background + sunWarm * exp(-sunDistance / (sunRadius * 4.0)) * 0.18 * sunShown, vec3(1.0));
+    if (isSky) {
+      float rayAngle = atan(toSun.y, toSun.x) + sin(sunDistance / (sunRadius * 1.8)) * 0.08 + u_time * 0.02;
+      float ray = step(0.5, fract(rayAngle / 6.2831853 * 26.0));
+      float reach = exp(-sunDistance / (sunRadius * 14.0)) * sunShown;
+      background = mix(background, sunWarm, ray * reach * 0.35);
+      background = mix(background, sunGold, exp(-sunDistance / (sunRadius * 2.7)) * 0.7 * sunShown);
+      if (stillSample.a < 0.19) {
+        if (sunDistance < sunRadius) {
+          background = mix(background, mix(vec3(1.0, 0.97, 0.88), sunGold, smoothstep(0.0, sunRadius, sunDistance)), sunShown);
+        }
+        if (abs(sunDistance - sunRadius) < 1.3) {
+          background = mix(background, vec3(0.04, 0.03, 0.08), 0.6 * sunShown);
+        }
+      }
+    }
+  }
+
+  // The moon: a cool halo and a pale disc with a few craters, also only
+  // where there's sky in front of it.
+  if (moonShown > 0.0 && isSky) {
+    // A softer halo by day, when the moon is a pale disc in a bright sky.
+    background = mix(background, vec3(0.31, 0.75, 0.95), exp(-moonDistance / (u_moon.z * 3.7)) * (0.5 - 0.35 * daylight) * moonShown);
+    if (stillSample.a < 0.19) {
+      float crater = u_moon.z * 0.23;
+      vec3 face = vec3(0.96, 0.95, 1.0);
+      if (length(toMoon - vec2(-0.29, -0.19) * u_moon.z) < crater || length(toMoon - vec2(0.32, 0.26) * u_moon.z) < crater * 0.7) {
+        face = vec3(0.95, 0.75, 0.9);
+      }
+      if (moonDistance < u_moon.z) {
+        background = mix(background, face, moonShown);
+      }
+      if (abs(moonDistance - u_moon.z) < 1.3) {
+        background = mix(background, vec3(0.04, 0.03, 0.08), 0.7 * moonShown);
+      }
+    }
   }
   gl_FragColor = vec4(rgb + background * (1.0 - alpha), 1.0);
 }
@@ -1234,6 +1364,10 @@ uniform float u_riverSpacing; // field units between neighbouring ribbons
 uniform vec4 u_layout;        // horizon (y px), shore (y px), scene width (px), valley width (px)
 uniform vec4 u_ranges;        // far range height, near range height, hill height, tree spacing (px)
 uniform vec3 u_probe;         // river map mode (getRiverProbe): landscape x, y of the corner, px per pixel (0 = off)
+uniform vec3 u_day;           // landscape px per day, where x = 0 sits in the day, share of the day the sun is up
+uniform float u_loop;         // the world repeats every this many landscape px sideways
+uniform vec4 u_clearings[3];  // the places' clearings: middle x, floor y, half width, depth (px; half width 0 = none)
+uniform vec4 u_clearingFronts[3]; // the patch in front of each that town.js paints the trees of: half width, depth (px)
 
 #define SPACE u_paint[0]
 #define INDIGO u_paint[1]
@@ -1285,48 +1419,102 @@ float getFbm(vec2 p) {
   return total / 0.9375;
 }
 
+// ---------- The loop ----------
+// The world repeats every u_loop px sideways, seamlessly. Every pattern
+// that changes along x is made to repeat with it: its size across is
+// nudged so a whole number of its cells fit in one loop (getLoopUnit), and
+// the cell numbers it hashes wrap round at that count. Positions themselves
+// never wrap, so nothing jumps; the same cells just come round again.
+
+float getLoopCells(float size) {
+  // How many cells of about this size (px) fit in one loop.
+  return max(1.0, floor(u_loop / size + 0.5));
+}
+
+float getWrapped(float cell, float cells) {
+  // A whole cell number wrapped round to 0 .. cells-1. (Not mod(): a GPU's
+  // rounded division can put an exact multiple on the wrong side.)
+  return cell - cells * floor((cell + 0.5) / cells);
+}
+
+float getLoopUnit(float size) {
+  // The nearest cell size to this that fits the loop exactly, px.
+  return u_loop / getLoopCells(size);
+}
+
+vec2 getLoopPoint(vec2 w, float size) {
+  // A landscape point in cells of about this size: x in looping cells, y as is.
+  return vec2(w.x / getLoopUnit(size), w.y / size);
+}
+
+float getLoopNoise(vec2 p, float cells) {
+  // getNoise that repeats every 'cells' along x.
+  vec2 cell = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float left = getWrapped(cell.x, cells);
+  float right = getWrapped(cell.x + 1.0, cells);
+  float a = getHash(vec2(left, cell.y));
+  float b = getHash(vec2(right, cell.y));
+  float c = getHash(vec2(left, cell.y + 1.0));
+  float d = getHash(vec2(right, cell.y + 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float getLoopFbm(vec2 p, float cells) {
+  // getFbm that repeats every 'cells' along x (each layer is exactly twice
+  // as fine across, so it repeats too).
+  float total = 0.0;
+  float amount = 0.5;
+  for (int i = 0; i < 4; i++) {
+    total += getLoopNoise(p, cells) * amount;
+    p = vec2(p.x * 2.0, p.y * 2.03) + vec2(17.1, 9.3);
+    cells *= 2.0;
+    amount *= 0.5;
+  }
+  return total / 0.9375;
+}
+
 // ---------- Scenes along the panorama ----------
-// Scene number n is centred on x = n * sceneWidth. Each has a mood (sunset,
-// night or dawn), a sun or moon over a valley notch, and a river from it.
+// Scene number n is centred on x = n * sceneWidth. Each has a valley notch
+// and a river from it ("sunX" is the middle of the notch). The colours follow
+// the time of day, which changes along x (u_day, matching the sun and moon
+// the live layer draws).
 
 float getSceneIndex(float x) {
-  return floor(x / u_layout.z + 0.5);
+  return floor(x / getLoopUnit(u_layout.z) + 0.5);
+}
+
+float getSceneNumber(float index) {
+  // Which scene of the loop this is (scenes repeat each loop).
+  return getWrapped(index, getLoopCells(u_layout.z));
 }
 
 float getSunX(float index) {
-  float jitter = (getHash(vec2(index, 3.1 + u_seed)) - 0.5) * 0.24;
-  if (index == 0.0) {
-    jitter = 0.08;   // the first scene's sun sits just right of where the orb starts
+  float jitter = (getHash(vec2(getSceneNumber(index), 3.1 + u_seed)) - 0.5) * 0.24;
+  if (getSceneNumber(index) == 0.0) {
+    jitter = 0.08;   // the first scene's notch sits just right of where the orb starts
   }
-  return (index + jitter) * u_layout.z;
-}
-
-vec3 getSceneMood(float index) {
-  // x = sunset, y = moonlit night, z = pastel dawn. The first scene is a sunset.
-  if (index == 0.0) {
-    return vec3(1.0, 0.0, 0.0);
-  }
-  float roll = getHash(vec2(index, 8.7 + u_seed));
-  if (roll < 0.4) {
-    return vec3(1.0, 0.0, 0.0);
-  }
-  if (roll < 0.75) {
-    return vec3(0.0, 1.0, 0.0);
-  }
-  return vec3(0.0, 0.0, 1.0);
+  return (index + jitter) * getLoopUnit(u_layout.z);
 }
 
 vec3 getMood(float x) {
-  // The mood here, blended with the next scene's near the edges.
-  float index = getSceneIndex(x);
-  float local = x / u_layout.z + 0.5 - index;
-  vec3 mood = getSceneMood(index);
-  if (local > 0.7) {
-    mood = mix(mood, getSceneMood(index + 1.0), smoothstep(0.7, 1.0, local) * 0.5);
-  } else if (local < 0.3) {
-    mood = mix(mood, getSceneMood(index - 1.0), smoothstep(0.3, 0.0, local) * 0.5);
+  // How much of each palette to use here: x = sunset, y = moonlit night,
+  // z = pastel dawn. Dawn while the sun is rising, sunset while it's going
+  // down (a mix of the two round midday), night while it's below the horizon.
+  float day = fract(x / u_day.x + u_day.y);
+  float up = u_day.z;
+  float height = 0.0;
+  if (day < up) {
+    height = sin(3.14159265 * day / up);
+  } else {
+    height = -sin(3.14159265 * (day - up) / (1.0 - up));
   }
-  return mood;
+  float night = smoothstep(0.25, -0.55, height);
+  // 0 at midnight, through sunrise, to 0.5 at midday, through sunset, to 1.
+  float fromMidnight = fract(day - up - (1.0 - up) * 0.5);
+  float morning = smoothstep(0.7, 0.3, fromMidnight);
+  return vec3((1.0 - night) * (1.0 - morning), night, (1.0 - night) * morning);
 }
 
 vec3 getMoodColour(vec3 mood, vec3 sunset, vec3 night, vec3 dawn) {
@@ -1360,13 +1548,13 @@ vec3 getSky(vec2 w, vec3 mood) {
   // Streaky bands of colour, stepped like brush strokes, with fine darker
   // strokes running through them.
   float up = u_layout.x - w.y;
-  float wobble = (getFbm(vec2(w.x / 900.0, w.y / 160.0) + u_seed) - 0.5) * 320.0;
+  float wobble = (getLoopFbm(vec2(w.x / getLoopUnit(900.0), w.y / 160.0) + u_seed, getLoopCells(900.0)) - 0.5) * 320.0;
   float banded = up + wobble;
   float bandHeight = 140.0;
   float within = fract(banded / bandHeight);
   banded = (floor(banded / bandHeight) + smoothstep(0.7, 1.0, within)) * bandHeight;
   vec3 colour = getSkyBand(max(banded, 0.0), mood);
-  float stroke = fract(getFbm(vec2(w.x / 700.0, w.y / 70.0) + u_seed + 4.0) * 7.0);
+  float stroke = fract(getLoopFbm(vec2(w.x / getLoopUnit(700.0), w.y / 70.0) + u_seed + 4.0, getLoopCells(700.0)) * 7.0);
   colour *= 1.0 - 0.2 * smoothstep(0.08, 0.0, stroke) * smoothstep(-100.0, 400.0, up);
   return colour;
 }
@@ -1374,8 +1562,8 @@ vec3 getSky(vec2 w, vec3 mood) {
 vec3 getSwirl(vec2 w, vec3 colour, float index, vec3 mood) {
   // A big spiral of sky in each scene, strongest at night, with ink lines.
   vec2 centre = vec2(
-    getSunX(index) + (getHash(vec2(index, 5.5 + u_seed)) - 0.5) * 1800.0,
-    u_layout.x - 1700.0 - getHash(vec2(index, 6.6 + u_seed)) * 700.0
+    getSunX(index) + (getHash(vec2(getSceneNumber(index), 5.5 + u_seed)) - 0.5) * 1800.0,
+    u_layout.x - 1700.0 - getHash(vec2(getSceneNumber(index), 6.6 + u_seed)) * 700.0
   );
   vec2 rel = w - centre;
   float r = length(rel);
@@ -1384,7 +1572,7 @@ vec3 getSwirl(vec2 w, vec3 colour, float index, vec3 mood) {
     return colour;
   }
   float angle = atan(rel.y, rel.x);
-  float spiral = fract(angle / 6.2831853 * 2.0 - r / 240.0 + getNoise(w / 320.0) * 0.35);
+  float spiral = fract(angle / 6.2831853 * 2.0 - r / 240.0 + getLoopNoise(getLoopPoint(w, 320.0), getLoopCells(320.0)) * 0.35);
   vec3 light = getMoodColour(mood, mix(MAGENTA, GOLD, 0.35), GLOW, SNOW);
   if (spiral < 0.24) {
     colour = mix(colour, light, 0.5 * reach);
@@ -1403,8 +1591,9 @@ vec3 getStars(vec2 w, vec3 colour) {
   if (amount <= 0.0) {
     return colour;
   }
-  vec2 grid = w / 40.0;
+  vec2 grid = getLoopPoint(w, 40.0);
   vec2 cell = floor(grid);
+  cell.x = getWrapped(cell.x, getLoopCells(40.0));
   float star = getHash(cell + vec2(1.9, 7.3));
   float threshold = 0.95 - 0.05 * smoothstep(800.0, 3500.0, up);
   if (star < threshold) {
@@ -1422,53 +1611,6 @@ vec3 getStars(vec2 w, vec3 colour) {
   return mix(colour, mix(SNOW, GOLD, getHash(cell + vec2(2.2, 2.2)) * 0.4), glow * amount);
 }
 
-vec3 getSun(vec2 w, vec3 colour, float sunX, vec3 mood) {
-  // Sunset and dawn: a sun sitting in the valley notch, with a sunburst of
-  // wavy rays and a warm glow round it.
-  float strength = mood.x + mood.z * 0.7;
-  if (strength <= 0.0) {
-    return colour;
-  }
-  vec2 rel = w - vec2(sunX, u_layout.x - 30.0);
-  float r = length(rel);
-  float angle = atan(rel.y, rel.x) + sin(r / 170.0) * 0.08;
-  float ray = step(0.5, fract(angle / 6.2831853 * 26.0));
-  float reach = exp(-r / 1500.0) * strength;
-  vec3 rayColour = getMoodColour(mood, mix(GOLD, ORANGE, 0.4), GLOW, PASTEL_PINK);
-  colour = mix(colour, rayColour, ray * reach * 0.38);
-  colour = mix(colour, GOLD, exp(-r / 260.0) * 0.7 * strength);
-  float disc = 95.0;
-  if (r < disc) {
-    colour = mix(colour, mix(SNOW, GOLD, smoothstep(0.0, disc, r)), strength);
-  }
-  if (abs(r - disc) < 1.3 * u_world.z) {
-    colour = mix(colour, INK, 0.6 * strength);
-  }
-  return colour;
-}
-
-vec3 getMoon(vec2 w, vec3 colour, float sunX, vec3 mood) {
-  // Night: a moon high over the notch, with a cool halo and a few craters.
-  if (mood.y <= 0.0) {
-    return colour;
-  }
-  vec2 rel = w - vec2(sunX + 520.0, u_layout.x - 1250.0);
-  float r = length(rel);
-  colour = mix(colour, GLOW, exp(-r / 230.0) * 0.5 * mood.y);
-  float disc = 62.0;
-  if (r < disc) {
-    vec3 face = SNOW;
-    if (length(rel - vec2(-18.0, -12.0)) < 14.0 || length(rel - vec2(20.0, 16.0)) < 10.0) {
-      face = mix(SNOW, SNOW_PINK, 0.6);
-    }
-    colour = mix(colour, face, mood.y);
-  }
-  if (abs(r - disc) < 1.3 * u_world.z) {
-    colour = mix(colour, INK, 0.7 * mood.y);
-  }
-  return colour;
-}
-
 // ---------- Sky ribbons (the currents) ----------
 
 vec2 getRiverField(vec2 w) {
@@ -1477,9 +1619,9 @@ vec2 getRiverField(vec2 w) {
   // of the same field, never cross. Returns the field value folded so the
   // nearest ribbon sits at 0.5, and the ribbon's half-width there (both in
   // field units). Ribbons taper away towards the ceiling, above the peaks.
-  float v = getFbm(w / u_land.x + u_seed + 13.0);
+  float v = getLoopFbm(getLoopPoint(w, u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
   float folded = 0.5 + (fract((v - 0.5) / u_riverSpacing + 0.5) - 0.5) * u_riverSpacing;
-  float width = u_land.y * (0.7 + 0.6 * getNoise(w / 2200.0 + 5.0));
+  float width = u_land.y * (0.7 + 0.6 * getLoopNoise(getLoopPoint(w, 2200.0) + 5.0, getLoopCells(2200.0)));
   width *= smoothstep(u_land.z, u_land.z - u_land.w, w.y);
   return vec2(folded, width);
 }
@@ -1492,9 +1634,9 @@ float getRiverDistance(vec2 w) {
   if (river.y < 0.001) {
     return 100.0;
   }
-  float v = getFbm(w / u_land.x + u_seed + 13.0);
-  float right = getFbm((w + vec2(6.0, 0.0)) / u_land.x + u_seed + 13.0);
-  float down = getFbm((w + vec2(0.0, 6.0)) / u_land.x + u_seed + 13.0);
+  float v = getLoopFbm(getLoopPoint(w, u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
+  float right = getLoopFbm(getLoopPoint(w + vec2(6.0, 0.0), u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
+  float down = getLoopFbm(getLoopPoint(w + vec2(0.0, 6.0), u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
   float slope = max(length(vec2(right - v, down - v)) / 6.0, 0.000001);
   return abs(river.x - 0.5) / slope / river.y;
 }
@@ -1502,9 +1644,9 @@ float getRiverDistance(vec2 w) {
 float getFlowAngle(vec2 w) {
   // Which way the ribbon flows here, as 0-1 round the circle (along the
   // field's contour).
-  float v = getFbm(w / u_land.x + u_seed + 13.0);
-  float right = getFbm((w + vec2(8.0, 0.0)) / u_land.x + u_seed + 13.0);
-  float down = getFbm((w + vec2(0.0, 8.0)) / u_land.x + u_seed + 13.0);
+  float v = getLoopFbm(getLoopPoint(w, u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
+  float right = getLoopFbm(getLoopPoint(w + vec2(8.0, 0.0), u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
+  float down = getLoopFbm(getLoopPoint(w + vec2(0.0, 8.0), u_land.x) + u_seed + 13.0, getLoopCells(u_land.x));
   vec2 flow = vec2(-(down - v), right - v);
   return atan(flow.y, flow.x) / 6.2831853 + 0.5;
 }
@@ -1524,11 +1666,12 @@ vec3 getRibbon(vec2 w, vec3 colour, float riverDistance, vec3 mood) {
   }
   float band = floor(riverDistance * 4.0) / 3.0;
   vec3 ribbon = mix(mix(body, INDIGO, 0.45 - 0.3 * mood.z), bright, band * 0.75);
-  vec2 cell = floor(w / 20.0);
+  vec2 cell = floor(getLoopPoint(w, 20.0));
+  cell.x = getWrapped(cell.x, getLoopCells(20.0));
   float star = getHash(cell + vec2(6.6, 2.4));
   if (star > 0.82) {
     vec2 spot = 0.2 + 0.6 * vec2(getHash(cell + vec2(1.1, 9.9)), getHash(cell + vec2(7.7, 3.3)));
-    float d = length(fract(w / 20.0) - spot);
+    float d = length(fract(getLoopPoint(w, 20.0)) - spot);
     ribbon = mix(ribbon, SNOW, smoothstep(0.16, 0.04, d) * (1.0 - band * 0.5));
   }
   if (fract(riverDistance * 4.0) < 0.07 && riverDistance > 0.2) {
@@ -1547,12 +1690,14 @@ float getRidge(float x, float scale, float seed) {
   // shoulders.
   float total = 0.0;
   float amount = 0.5;
-  float p = x / scale;
+  float p = x / getLoopUnit(scale);
+  float cells = getLoopCells(scale);
   for (int i = 0; i < 5; i++) {
-    float n = getNoise(vec2(p, seed + float(i) * 7.3));
+    float n = getLoopNoise(vec2(p, seed + float(i) * 7.3), cells);
     float ridge = 1.0 - abs(n * 2.0 - 1.0);
     total += ridge * ridge * amount;
-    p = p * 2.1 + 3.7;
+    p = p * 2.0 + 3.7;
+    cells *= 2.0;
     amount *= 0.5;
   }
   return total / 0.97;
@@ -1582,9 +1727,9 @@ float getIsSnow(vec2 w, float top, float height) {
   // Snow down to a wavy snowline below the skyline, broken by dark rock
   // patches (1 = snow).
   float depth = w.y - top;
-  float line = height * (0.28 + 0.3 * getNoise(vec2(w.x / 260.0, 1.5 + u_seed)));
+  float line = height * (0.28 + 0.3 * getLoopNoise(vec2(w.x / getLoopUnit(260.0), 1.5 + u_seed), getLoopCells(260.0)));
   // Rock streaks run down the slopes, slanting like the ridges.
-  float rockPatch = getFbm(vec2((w.x + depth * 0.6) / 70.0, depth / 260.0) + u_seed + 21.0);
+  float rockPatch = getLoopFbm(vec2((w.x + depth * 0.6) / getLoopUnit(70.0), depth / 260.0) + u_seed + 21.0, getLoopCells(70.0));
   if (depth < line && rockPatch < 0.62) {
     return 1.0;
   }
@@ -1597,7 +1742,7 @@ float getIsLit(vec2 w, float top, float sunX, float rangeTopKind) {
   // so the line between light and shade runs diagonally down from every
   // peak, like a ridge.
   float depth = w.y - top;
-  float lean = 0.6 + 0.35 * (getNoise(vec2(w.x / 300.0, depth / 300.0) + u_seed) - 0.5);
+  float lean = 0.6 + 0.35 * (getLoopNoise(vec2(w.x / getLoopUnit(300.0), depth / 300.0) + u_seed, getLoopCells(300.0)) - 0.5);
   float x = w.x - depth * lean;
   float slope = 0.0;
   if (rangeTopKind < 0.5) {
@@ -1655,13 +1800,63 @@ float getRiverX(float y, float sunX) {
   // Where the river is at a height: it winds out of the valley and swings
   // wider the nearer it comes.
   float along = max(y - (u_layout.x + 280.0), 0.0);
-  float swing = sin(along / 110.0 + sunX * 0.001) * along * 0.45;
-  float wander = (getNoise(vec2(along / 160.0, sunX * 0.01)) - 0.5) * along * 0.5;
+  float looped = mod(sunX, u_loop);   // the same river each time round the loop
+  float swing = sin(along / 110.0 + looped * 0.001) * along * 0.45;
+  float wander = (getNoise(vec2(along / 160.0, looped * 0.01)) - 0.5) * along * 0.5;
   return sunX + swing + wander;
 }
 
 float getRiverWidth(float y) {
   return 8.0 + max(y - (u_layout.x + 280.0), 0.0) * 0.11;
+}
+
+float getClearingAcross(float x, vec4 clearing) {
+  // How far x is from the middle of a clearing, px (the nearest copy round
+  // the loop).
+  float dx = x - clearing.x;
+  return abs(dx - u_loop * floor(dx / u_loop + 0.5));
+}
+
+float getIsInOneClearing(vec2 p, float ragged, vec4 clearing) {
+  // 1 inside this clearing: within its half width (pulled in by up to
+  // 'ragged' px, so the edge isn't a straight line) and between the floor
+  // (and a little below it) and its depth up the hill.
+  if (clearing.z <= 0.0) {
+    return 0.0;
+  }
+  float across = getClearingAcross(p.x, clearing);
+  if (across > clearing.z - ragged) {
+    return 0.0;
+  }
+  // The top edge curves down towards the sides, like a dome cut into the trees.
+  float top = clearing.y - clearing.w * sqrt(max(0.0, 1.0 - pow(across / clearing.z, 2.0)));
+  if (p.y < top || p.y > clearing.y + 70.0) {
+    return 0.0;
+  }
+  return 1.0;
+}
+
+float getIsInClearing(vec2 p, float ragged) {
+  // 1 inside any of the places' clearings.
+  for (int i = 0; i < 3; i++) {
+    if (getIsInOneClearing(p, ragged, u_clearings[i]) > 0.5) {
+      return 1.0;
+    }
+  }
+  return 0.0;
+}
+
+float getIsInFrontOfPlace(float x, float base) {
+  // 1 for a tree standing just in front of a place's building (town.js
+  // paints those over the building).
+  for (int i = 0; i < 3; i++) {
+    vec4 clearing = u_clearings[i];
+    vec4 front = u_clearingFronts[i];
+    if (clearing.z > 0.0 && getClearingAcross(x, clearing) < front.x && base > clearing.y && base < clearing.y + front.y) {
+      return 1.0;
+    }
+  }
+  return 0.0;
 }
 
 vec4 getTrees(vec2 w, float hillTop, float sunX, vec3 mood) {
@@ -1670,10 +1865,12 @@ vec4 getTrees(vec2 w, float hillTop, float sunX, vec3 mood) {
   // lit edge on its sunny side and ink outlines; the back rows are a little
   // hazier. Trees keep out of the river. Returns the colour and 1 where a
   // tree covers the point.
-  float spacing = u_ranges.w;
-  float rowStep = spacing * 1.3;
+  float spacing = getLoopUnit(u_ranges.w);
+  float treeCells = getLoopCells(u_ranges.w);
+  float rowStep = u_ranges.w * 1.3;
   float cellX = floor(w.x / spacing);
-  float firstRow = floor((w.y - hillTop) / rowStep) - 1.0;
+  // (Above the hilltops, start at the first rows: their tops reach up there.)
+  float firstRow = max(-1.0, floor((w.y - hillTop) / rowStep) - 1.0);
   vec3 colour = vec3(0.0);
   float hit = 0.0;
   float frontBase = -1.0e9;
@@ -1686,12 +1883,13 @@ vec4 getTrees(vec2 w, float hillTop, float sunX, vec3 mood) {
     }
     for (int c = -1; c <= 1; c++) {
       vec2 id = vec2(cellX + float(c), row);
-      float x = (id.x + 0.15 + 0.7 * getHash(id + vec2(1.3, 0.0))) * spacing;
-      float base = hillTop + (row + 0.3 + 0.5 * getHash(id + vec2(7.7, 0.0))) * rowStep;
+      vec2 tag = vec2(getWrapped(id.x, treeCells), row);   // repeats each loop
+      float x = (id.x + 0.15 + 0.7 * getHash(tag + vec2(1.3, 0.0))) * spacing;
+      float base = hillTop + (row + 0.3 + 0.5 * getHash(tag + vec2(7.7, 0.0))) * rowStep;
       if (base < w.y || base < frontBase) {
         continue;
       }
-      float tall = spacing * (1.5 + 1.1 * getHash(id + vec2(4.2, 0.0))) * (1.0 + row * 0.05);
+      float tall = spacing * (1.5 + 1.1 * getHash(tag + vec2(4.2, 0.0))) * (1.0 + row * 0.05);
       float up = base - w.y;
       if (up > tall) {
         continue;
@@ -1710,6 +1908,12 @@ vec4 getTrees(vec2 w, float hillTop, float sunX, vec3 mood) {
       if (abs(x - getRiverX(base, sunX)) < getRiverWidth(base) + spacing * 0.3) {
         continue;
       }
+      if (getIsInClearing(vec2(x, base), getHash(tag + vec2(9.1, 2.3)) * 90.0) > 0.5) {
+        continue;   // the Work building's clearing
+      }
+      if (getIsInFrontOfPlace(x, base) > 0.5) {
+        continue;   // in front of a building: town.js paints these, over it
+      }
       frontBase = base;
       hit = 1.0;
       vec3 tree = mix(PINE, haze, 0.3 * exp(-row * 0.6));
@@ -1726,12 +1930,13 @@ vec4 getTrees(vec2 w, float hillTop, float sunX, vec3 mood) {
 }
 
 float getShoreY(float x) {
-  return u_layout.y + (getNoise(vec2(x / 240.0, 9.1 + u_seed)) - 0.5) * 60.0;
+  return u_layout.y + (getLoopNoise(vec2(x / getLoopUnit(240.0), 9.1 + u_seed), getLoopCells(240.0)) - 0.5) * 60.0;
 }
 
 vec4 getBoulders(vec2 w, float sunX, vec3 mood) {
   // Rounded boulders along the shore: flat lit and shaded faces, inked.
-  float spacing = 170.0;
+  float spacing = getLoopUnit(170.0);
+  float boulderCells = getLoopCells(170.0);
   float cellX = floor(w.x / spacing);
   vec3 colour = vec3(0.0);
   float hit = 0.0;
@@ -1739,18 +1944,19 @@ vec4 getBoulders(vec2 w, float sunX, vec3 mood) {
   vec3 lit = getMoodColour(mood, mix(ROCK, MAGENTA, 0.3), mix(ROCK, GLOW, 0.2), mix(ROCK, PASTEL_PINK, 0.35));
   for (int c = -1; c <= 1; c++) {
     float id = cellX + float(c);
-    if (getHash(vec2(id, 4.4)) > 0.75) {
+    float tag = getWrapped(id, boulderCells);   // repeats each loop
+    if (getHash(vec2(tag, 4.4)) > 0.75) {
       continue;
     }
-    float x = (id + 0.2 + 0.6 * getHash(vec2(id, 1.7))) * spacing;
-    float radius = spacing * (0.25 + 0.4 * getHash(vec2(id, 2.9)));
+    float x = (id + 0.2 + 0.6 * getHash(vec2(tag, 1.7))) * spacing;
+    float radius = spacing * (0.25 + 0.4 * getHash(vec2(tag, 2.9)));
     float base = getShoreY(x) + 8.0;
     vec2 rel = (w - vec2(x, base)) / vec2(radius, radius * 0.8);
     if (rel.y > 0.0 || base < front) {
       continue;
     }
     float angle = atan(rel.y, rel.x);
-    float d = length(rel) * (1.0 + 0.07 * sin(angle * 5.0 + id));
+    float d = length(rel) * (1.0 + 0.07 * sin(angle * 5.0 + tag));
     if (d > 1.0) {
       continue;
     }
@@ -1771,7 +1977,18 @@ vec4 getBoulders(vec2 w, float sunX, vec3 mood) {
 vec4 getForest(vec2 w, float hillTop, float sunX, vec3 mood) {
   // Below the hilltops: forest floor, the river, trees, then shore boulders
   // and a few glinting reeds.
-  vec3 colour = mix(PINE, ROCK_DARK, 0.45 + 0.25 * getNoise(w / 60.0));
+  vec3 colour = mix(PINE, ROCK_DARK, 0.45 + 0.25 * getLoopNoise(getLoopPoint(w, 60.0), getLoopCells(60.0)));
+  // The places' clearings: a meadow a little lighter than the
+  // forest floor, in two flat greens, with a ragged, painted edge that the
+  // trees close in round.
+  float wobble = (getLoopNoise(vec2(w.x / getLoopUnit(70.0), w.y / 60.0), getLoopCells(70.0)) - 0.5) * 110.0;
+  vec2 meadowPoint = vec2(w.x, w.y - wobble * 0.4);
+  if (getIsInClearing(meadowPoint, 50.0 - wobble) > 0.5) {
+    vec3 grass = mix(colour, mix(PINE, PINE_LIGHT, 0.3), 0.75);
+    vec3 grassLit = getMoodColour(mood, mix(PINE_LIGHT, ORANGE, 0.3), mix(PINE_LIGHT, GLOW, 0.35), mix(PINE_LIGHT, PASTEL_MINT, 0.4));
+    float stripe = getLoopNoise(vec2(w.x / getLoopUnit(140.0), w.y / 30.0), getLoopCells(140.0));
+    colour = stripe > 0.6 ? mix(grass, grassLit, 0.25) : grass;
+  }
   float alpha = 0.0;
   float riverX = getRiverX(w.y, sunX);
   float riverWidth = getRiverWidth(w.y);
@@ -1797,8 +2014,9 @@ vec4 getForest(vec2 w, float hillTop, float sunX, vec3 mood) {
   }
   float shore = getShoreY(w.x);
   if (w.y > shore - 34.0) {
-    vec2 cell = floor(w / vec2(9.0, 30.0));
-    if (getHash(cell + vec2(3.3, 1.1)) > 0.86 && abs(fract(w.x / 9.0) - 0.5) < 0.12) {
+    vec2 cell = floor(vec2(w.x / getLoopUnit(9.0), w.y / 30.0));
+    cell.x = getWrapped(cell.x, getLoopCells(9.0));
+    if (getHash(cell + vec2(3.3, 1.1)) > 0.86 && abs(fract(w.x / getLoopUnit(9.0)) - 0.5) < 0.12) {
       colour = mix(colour, getMoodColour(mood, GOLD, PINE_LIGHT, PINE_LIGHT), 0.7);
     }
   }
@@ -1817,12 +2035,20 @@ vec4 getLand(vec2 w) {
   float index = getSceneIndex(w.x);
   float sunX = getSunX(index);
   vec3 mood = getMood(w.x);
+  // The front row of the forest stands up past the hilltops: their tops
+  // are drawn over the mountains (or the sky) behind, not cut off by them.
+  float hillTop = getHillTop(w.x);
+  if (w.y < hillTop && w.y > hillTop - u_ranges.w * 3.5) {
+    vec4 treeTops = getTrees(w, hillTop, sunX, mood);
+    if (treeTops.a > 0.5) {
+      return vec4(treeTops.rgb, 0.0);
+    }
+  }
   float farTop = getFarTop(w.x);
   if (w.y < farTop) {
     vec3 sky = getSky(w, mood);
     sky = getSwirl(w, sky, index, mood);
     sky = getStars(w, sky);
-    sky = getSun(w, sky, sunX, mood);
     float alpha = ALPHA_SKY;
     float riverDistance = getRiverDistance(w);
     if (riverDistance < 1.6) {
@@ -1831,7 +2057,6 @@ vec4 getLand(vec2 w) {
         alpha = 0.2 + 0.5 * getFlowAngle(w);
       }
     }
-    sky = getMoon(w, sky, sunX, mood);
     return vec4(sky, alpha);
   }
   float nearTop = getNearTop(w.x);
@@ -1839,7 +2064,6 @@ vec4 getLand(vec2 w) {
     float slope = (getFarTop(w.x + 4.0) - getFarTop(w.x - 4.0)) / 8.0;
     return vec4(getMountain(w, farTop, slope, u_ranges.x, mood, sunX, 0.3, 0.0), 0.0);
   }
-  float hillTop = getHillTop(w.x);
   if (w.y < hillTop) {
     float slope = (getNearTop(w.x + 4.0) - getNearTop(w.x - 4.0)) / 8.0;
     return vec4(getMountain(w, nearTop, slope, u_ranges.y, mood, sunX, 0.1, 1.0), 0.0);
@@ -1854,7 +2078,7 @@ void main() {
     // extras.js can tell whether the orb is in a ribbon and which way it
     // flows without asking the GPU every frame (getRiverProbe).
     vec2 q = u_probe.xy + floor(gl_FragCoord.xy) * u_probe.z;
-    float v = clamp(getFbm(q / u_land.x + u_seed + 13.0), 0.0, 0.99998);
+    float v = clamp(getLoopFbm(getLoopPoint(q, u_land.x) + u_seed + 13.0, getLoopCells(u_land.x)), 0.0, 0.99998);
     float width = getRiverField(q).y;
     gl_FragColor = vec4(floor(v * 255.0) / 255.0, fract(v * 255.0), width / 400.0, 1.0);
     return;
@@ -1870,11 +2094,11 @@ void main() {
   // reflections skip the forest), with light lines on the water and an
   // inked shoreline.
   float depth = w.y - shore;
-  float ripple = sin(w.y / 9.0 + getNoise(vec2(w.x / 120.0, w.y / 40.0)) * 6.0) * (2.0 + depth * 0.02);
+  float ripple = sin(w.y / 9.0 + getLoopNoise(vec2(w.x / getLoopUnit(120.0), w.y / 40.0), getLoopCells(120.0)) * 6.0) * (2.0 + depth * 0.02);
   vec2 mirrored = vec2(w.x + ripple, u_layout.x + 150.0 - depth);
   vec3 colour = getLand(mirrored).rgb;
   colour = mix(colour * 0.8, INDIGO, 0.15 + smoothstep(0.0, 3000.0, depth) * 0.3);
-  float line = fract(w.y / 16.0 + getNoise(vec2(w.x / 260.0, w.y / 50.0)) * 1.5);
+  float line = fract(w.y / 16.0 + getLoopNoise(vec2(w.x / getLoopUnit(260.0), w.y / 50.0), getLoopCells(260.0)) * 1.5);
   if (line < 0.1) {
     colour = min(colour * 1.35, vec3(1.0));
   }
@@ -1949,7 +2173,7 @@ function setSwirlRenderer() {
     "u_detail", "u_speed", "u_spin", "u_vortexSpeed", "u_vortex",
     "u_ripples", "u_rippleShape", "u_rippleStrength", "u_breathe", "u_hue", "u_split",
     "u_auroraShape", "u_auroraLook", "u_base", "u_auroraFlow", "u_worldOffset", "u_shimmer", "u_riverFlow",
-    "u_waterGlints",
+    "u_waterGlints", "u_sun", "u_moon", "u_sunRising", "u_twilight", "u_twilightSpan",
   ];
   for (const name of names) {
     swirlState.uniforms[name] = gl.getUniformLocation(program, name);
@@ -2160,6 +2384,22 @@ function setTerrainUniforms() {
   gl.uniform1f(gl.getUniformLocation(program, "u_seed"), (swirlSeed % 89) * 1.37);
   gl.uniform4f(gl.getUniformLocation(program, "u_land"), BG.riverSize, BG.riverWidth, BG.ribbonCeiling, BG.ribbonFade);
   gl.uniform1f(gl.getUniformLocation(program, "u_riverSpacing"), BG.riverSpacing);
+  gl.uniform3f(gl.getUniformLocation(program, "u_day"), BG.dayWidth, BG.dayStart + swirlState.paintedDrift, BG.dayShare);
+  gl.uniform1f(gl.getUniformLocation(program, "u_loop"), BG.dayWidth);
+  const clearings = [];
+  const fronts = [];
+  for (let i = 0; i < 3; i++) {
+    const clearing = BG.clearings[i];
+    if (clearing) {
+      clearings.push(clearing.x, BG.clearingFloor, clearing.halfWidth, clearing.depth);
+      fronts.push(clearing.frontHalfWidth, BG.clearingFrontDepth, 0, 0);
+    } else {
+      clearings.push(0, 0, 0, 0);
+      fronts.push(0, 0, 0, 0);
+    }
+  }
+  gl.uniform4fv(gl.getUniformLocation(program, "u_clearings"), new Float32Array(clearings));
+  gl.uniform4fv(gl.getUniformLocation(program, "u_clearingFronts"), new Float32Array(fronts));
   gl.uniform4f(gl.getUniformLocation(program, "u_layout"), BG.horizon, BG.shoreLevel, BG.sceneWidth, BG.valleyWidth);
   gl.uniform4f(gl.getUniformLocation(program, "u_ranges"), BG.farHeight, BG.midHeight, BG.hillHeight, BG.treeSpacing);
   // The landscape is measured in its own px: world px divided by the zoom,
@@ -2293,7 +2533,12 @@ function setBackgroundShift(dx, dy) {
     setVortexUniform();
     setWorldUniform();
   }
+  // This frame is drawn before flight.js scrolls the view to match the
+  // shift, so the page is still where it was on screen: the sun allows for
+  // where it's about to be (setSunUniform).
+  swirlState.pendingShift = { x: dx, y: dy };
   setSwirlFrame(getSeconds());
+  swirlState.pendingShift = null;
 }
 
 function setBackgroundZoom(zoom) {
@@ -2399,6 +2644,119 @@ function setSwirlUniforms() {
   setWorldUniform();
 }
 
+function getDayAt(pageX) {
+  // Where in the day one spot of the landscape is (0 = sunrise, BG.dayShare =
+  // sunset, back to 1 = the next sunrise).
+  const x = (getWorldOrigin().x + pageX) / BG.zoom;
+  const day = x / BG.dayWidth + BG.dayStart + swirlState.dayDrift;
+  return day - Math.floor(day);
+}
+
+function getHeightInDay(day, upShare) {
+  // 0 at rise, 1 at the highest, 0 at set, down to -1 and back (day 0-1),
+  // up for upShare of the day.
+  day = day - Math.floor(day);
+  if (day < upShare) {
+    return Math.sin(Math.PI * day / upShare);
+  }
+  return -Math.sin(Math.PI * (day - upShare) / (1 - upShare));
+}
+
+function setDayDrift(seconds) {
+  // The day also turns slowly by itself, so the sun and moon keep creeping
+  // up or down even when nothing moves. The sun follows it smoothly; the
+  // landscape's colours catch up with a repaint now and then (a step too
+  // small to see).
+  if (reducedMotion.matches) {
+    return;
+  }
+  swirlState.dayDrift = seconds / BG.dayDrift;
+  if (Math.abs(swirlState.dayDrift - swirlState.paintedDrift) > BG.dayRepaint) {
+    swirlState.paintedDrift = swirlState.dayDrift;
+    setTerrain();
+  }
+}
+
+function getLoopWorldWidth() {
+  // The world repeats every this many world px sideways (BG.dayWidth in
+  // landscape px). Used by hunt.js and extras.js too.
+  return BG.dayWidth * BG.zoom;
+}
+
+function getNearestLoopX(worldX, nearX) {
+  // The copy of a world x (one per trip round the loop) nearest to nearX.
+  const loop = getLoopWorldWidth();
+  return worldX + Math.round((nearX - worldX) / loop) * loop;
+}
+
+function getMorningAmount(pageX) {
+  // 1 from midnight through sunrise, 0 from midday through sunset, easing
+  // between (matches the terrain shader's getMood).
+  const day = getDayAt(pageX);
+  let fromMidnight = day - BG.dayShare - (1 - BG.dayShare) / 2;
+  fromMidnight = fromMidnight - Math.floor(fromMidnight);
+  const t = Math.min(1, Math.max(0, (0.7 - fromMidnight) / 0.4));
+  return t * t * (3 - 2 * t);
+}
+
+function getSkyPlace(day, peakDay, upLength) {
+  // Where something that's highest at peakDay and up for upLength of the
+  // day appears from a spot whose time of day is 'day': its height (1 =
+  // overhead, 0 = on the horizon, below 0 = set) and how far across the
+  // screen it sits (0 = middle, +-1 = at the horizon, + = to the right,
+  // the way the day side lies when it's still morning here).
+  let towards = peakDay - day;
+  towards = towards - Math.round(towards);
+  const across = towards / (upLength / 2);
+  return { height: getHeightInDay(day - (peakDay - upLength / 2), upLength), across: across };
+}
+
+function setSunUniform() {
+  // The sun over the day side and the moon over the night side, as seen
+  // from the middle of the screen (getSkyPlace). Their height is a real
+  // height in the landscape, so flying up or down moves them on the screen
+  // like the mountains (off it, if the orb goes far enough).
+  const box = backgroundPage.getBoundingClientRect();
+  const pageBox = { left: box.left, top: box.top };
+  if (swirlState.pendingShift) {
+    pageBox.left += swirlState.pendingShift.x;
+    pageBox.top += swirlState.pendingShift.y;
+  }
+  const width = window.innerWidth;
+  const viewX = width / 2 - pageBox.left;   // the middle of the screen, page px
+  const day = getDayAt(viewX);
+  const sun = getSkyPlace(day, BG.dayShare / 2, BG.dayShare);
+  const height = sun.height;
+  const screenX = width / 2 + sun.across * BG.sunSwing * width;
+  swirlState.gl.uniform1f(swirlState.uniforms.u_sunRising, getMorningAmount(viewX));
+  swirlState.gl.uniform3f(swirlState.uniforms.u_twilight, BG.twilightFlush, BG.twilightGlow, BG.nightDeepness);
+  swirlState.gl.uniform1f(swirlState.uniforms.u_twilightSpan, BG.twilightSpan);
+  const canvasX = (screenX - pageBox.left + BG.margin) * BG.swirlResolution;
+  const originY = getWorldOrigin().y;
+  const getCanvasY = function (rise) {
+    const landscapeY = BG.sunLow + (BG.sunHigh - BG.sunLow) * rise;
+    return (landscapeY * BG.zoom - originY + BG.margin) * BG.swirlResolution;
+  };
+  swirlState.gl.uniform4f(
+    swirlState.uniforms.u_sun,
+    canvasX, getCanvasY(height), BG.sunRadius * BG.zoom * BG.swirlResolution, height
+  );
+  // The moon: over the middle of the night side, up all night and a little
+  // either side of it (BG.moonOverlap).
+  const night = 1 - BG.dayShare;
+  const moon = getSkyPlace(day, BG.dayShare + night / 2, night + 2 * BG.moonOverlap);
+  const moonHeight = moon.height;
+  const moonScreenX = width / 2 + moon.across * BG.sunSwing * width;
+  const moonUp = Math.min(1, Math.max(0, (moonHeight + 0.2) / 0.22));
+  swirlState.gl.uniform4f(
+    swirlState.uniforms.u_moon,
+    (moonScreenX - pageBox.left + BG.margin) * BG.swirlResolution,
+    getCanvasY(moonHeight),
+    BG.moonRadius * BG.zoom * BG.swirlResolution,
+    moonUp * moonUp * (3 - 2 * moonUp)
+  );
+}
+
 function setSwirlFrame(seconds) {
   // Draws the swirl layer for one moment in time.
   setSwirlSource(seconds);
@@ -2413,10 +2771,12 @@ function setSwirlFrame(seconds) {
     return;
   }
 
+  setDayDrift(seconds);   // first: a repaint of the landscape rebinds textures
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, swirlState.texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, swirlState.sourceCanvas);
   gl.uniform1f(swirlState.uniforms.u_time, seconds);
+  setSunUniform();
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -2461,6 +2821,12 @@ function setCelebrationColours(seconds) {
     swing = BG.celebrateHueSwing;
   }
   swirlState.gl.uniform3f(swirlState.uniforms.u_hue, swing, BG.hueWavelength * BG.swirlResolution, BG.hueSpeed);
+}
+
+function getIsInsideBuilding() {
+  // True while the visitor is inside the Work building (office.js), which
+  // covers the whole screen: the world outside needn't be drawn then.
+  return typeof getIsInOffice === "function" && getIsInOffice();
 }
 
 function getIsPlainView() {
@@ -2514,7 +2880,7 @@ function setLiteModeCheck(now) {
 function setSwirlAnimation(now) {
   // Runs every animation frame, drawing at most BG.fps times per second.
   swirlState.frame = requestAnimationFrame(setSwirlAnimation);
-  if (now - swirlState.lastFrameTime < 1000 / BG.fps || getIsPlainView()) {
+  if (now - swirlState.lastFrameTime < 1000 / BG.fps || getIsPlainView() || getIsInsideBuilding()) {
     return;
   }
   setLiteModeCheck(now);

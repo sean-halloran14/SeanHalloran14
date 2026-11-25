@@ -77,9 +77,9 @@ const SUN = {
   stripeSpeed: 0.8,        // how fast the planets' stripes turn, radians per second
   // Random orbits: each planet gets its own (from the swirl seed, so
   // ?swirls=12345 repeats a layout). Ranges are [smallest, largest].
-  ovalRange: [0.7, 1.15],  // stretch of the orbit across and down (share of its distance)
+  ovalRange: [0.94, 1.06], // stretch of the orbit across and down (share of its distance)
   precessRange: [-0.08, 0.08],  // how fast the oval itself turns, radians per second
-  loopRange: [0.04, 0.13], // size of the little loops (share of the orbit's distance)
+  loopRange: [0.02, 0.05], // size of the little loops (share of the orbit's distance)
   loopsRange: [3, 7],      // loops per trip round
   speedRange: [0.7, 1.35], // speed compared with a plain orbit at that distance
   backwardsChance: 0.25,   // chance a planet goes round the other way
@@ -108,24 +108,32 @@ const SUN = {
     { colour: "--earth", stripe: "--tan-dark" },
     { colour: "--sun-glow", stripe: "--ember" },
   ],
+  // Spacing: a planet's moons share one ring round it, evenly spaced, and go
+  // round together so they never bunch up. Planet orbits are set far enough
+  // apart that no two planets' moon rings can ever touch, however their
+  // ovals and loops swing (setOrbitSpacing).
   planetOrbitStart: 240,   // the first planet's distance from me, px (before scaling)
-  planetOrbitGap: 290,     // extra distance for each planet further out, px
+  planetClearance: 70,     // the least room between two planets' moon rings, px
   planetSize: 46,          // planet size, px (before scaling)
-  moonOrbitStart: 96,      // the first moon's distance from its planet, px
-  moonOrbitGap: 34,        // extra distance for each further moon, px
+  moonOrbitStart: 135,     // a moon ring's smallest radius round its planet, px
+  moonSpacing: 3.4,        // the ring grows so neighbouring moons are at least this many moon sizes apart
   moonSize: 30,            // moon size, px
-  moonSpeed: 0.75,         // radians per second for a planet's innermost moon
+  moonSpeed: 0.4,          // radians per second for a moon ring
   fitScreens: 2.4,         // the system is scaled to fit this many half-screens (the outer planets can sit off screen)
+  minScale: 0.55,          // never shrink the system below this (before the page zoom)...
+  phoneMinScale: 0.62,     // ...or this on small screens, so planets stay big enough to tap
+  phoneWidth: 600,         // screens narrower than this (px) count as small
   planets: [],             // filled from the list at start-up (setSolarSystem)
   innerSpeed: 0.45,        // radians per second for the innermost orbit
   hoverReach: 14,          // how close the pointer must be to a planet's edge, px
   hintTime: 12,            // seconds before the hint fades by itself
   fps: 60,
+  showPlanets: false,      // draw the planets orbiting the orb (off: each is a place in the world instead)
 };
 
 const sunCanvas = document.querySelector(".sun-layer");
 const sunContext = sunCanvas.getContext("2d");
-// Where the drawing functions draw. Usually the orb canvas; hunt.js points it
+// Where the drawing functions draw. Usually the orb canvas; another file can point it
 // at a hidden planet's own little canvas while drawing that planet.
 let drawContext = sunContext;
 const sunMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -254,7 +262,11 @@ function setSunScale() {
   // world is bigger than the screen, but the system should fit in one view).
   const outer = getOuterReach() + 30;
   const room = (Math.min(window.innerWidth, window.innerHeight) / 2 - 24) * SUN.fitScreens;
-  sunState.scale = Math.min(1, Math.max(0.4, room / outer));
+  let minScale = SUN.minScale;
+  if (Math.min(window.innerWidth, window.innerHeight) < SUN.phoneWidth) {
+    minScale = SUN.phoneMinScale;
+  }
+  sunState.scale = Math.min(1, Math.max(minScale, room / outer));
   if (typeof BG !== "undefined") {
     sunState.scale = sunState.scale * BG.zoom;   // the page's zoom (background.js)
   }
@@ -270,7 +282,7 @@ function setSunScale() {
 }
 
 function setSunCelebration(duration) {
-  // Makes the orb throb and spin faster for a while (hunt.js, when all are found).
+  // Makes the orb throb and spin faster for a while (a celebration).
   sunState.celebrateUntil = getSunSeconds() + duration;
 }
 
@@ -425,7 +437,7 @@ function setRoundedBox(x, y, width, height, radius) {
 // origin at the belly: a big head with curly hair and sunglasses, a green
 // flannel, brown trousers and green sandals. Its pose follows how it's
 // moving (setAvatarMotion measures that from frame to frame, whatever moved
-// it: flying, keys, currents, a boost or a black hole):
+// it: flying, keys, currents, or a boost):
 //   still     - hovering and waving, legs dangling
 //   sideways  - leaning into the flight like a superhero, fist first
 //   up        - both arms up, legs together, kicking
@@ -946,7 +958,7 @@ function getRandomInRange(random, range) {
 function setSolarSystem() {
   // Turns the list into bodies: planets in order outward from me, and moons
   // round the planet before them. Every body keeps its list index, so panels,
-  // labels, keyboard focus and the hunt all work the same for both.
+  // labels and keyboard focus work the same for both.
   SUN.planets = [];
   let parent = null;
   let planetNumber = 0;
@@ -957,7 +969,8 @@ function setSolarSystem() {
       const look = SUN.moonStyles[moonNumber % SUN.moonStyles.length];
       SUN.planets.push({
         parent: parent,
-        orbit: SUN.moonOrbitStart + SUN.planets[parent].moonCount * SUN.moonOrbitGap,
+        orbit: SUN.moonOrbitStart,   // set by setOrbitSpacing
+        moonNumber: SUN.planets[parent].moonCount,
         size: SUN.moonSize,
         colour: look.colour,
         stripe: look.stripe,
@@ -972,7 +985,8 @@ function setSolarSystem() {
       parent = i;
       SUN.planets.push({
         parent: null,
-        orbit: SUN.planetOrbitStart + planetNumber * SUN.planetOrbitGap,
+        orbit: SUN.planetOrbitStart,   // set by setOrbitSpacing
+        planetNumber: planetNumber,
         size: SUN.planetSize,
         colour: look.colour,
         stripe: look.stripe,
@@ -985,6 +999,37 @@ function setSolarSystem() {
     }
   }
   sunState.planetCount = SUN.planets.length;
+  setOrbitSpacing();
+}
+
+function setOrbitSpacing() {
+  // Each planet's moons go on one ring, big enough that neighbours keep
+  // SUN.moonSpacing moon sizes apart. Then each planet's orbit goes far
+  // enough out that, at the inner planet's widest swing and this one's
+  // narrowest, their moon rings still keep SUN.planetClearance apart.
+  const widest = SUN.ovalRange[1] + SUN.loopRange[1];
+  const narrowest = SUN.ovalRange[0] - SUN.loopRange[1];
+  let previous = null;
+  for (let i = 0; i < SUN.planets.length; i++) {
+    const planet = SUN.planets[i];
+    if (planet.parent !== null) {
+      continue;
+    }
+    const ring = Math.max(SUN.moonOrbitStart, planet.moonCount * SUN.moonSize * SUN.moonSpacing / (Math.PI * 2));
+    planet.moonRing = ring;
+    planet.reach = Math.max(planet.size / 2, ring * 1.05 + SUN.moonSize / 2);
+    if (previous === null) {
+      planet.orbit = Math.max(SUN.planetOrbitStart, (SUN.coreRadius * 1.6 + planet.reach + SUN.planetClearance) / narrowest);
+    } else {
+      planet.orbit = (previous.orbit * widest + previous.reach + planet.reach + SUN.planetClearance) / narrowest;
+    }
+    previous = planet;
+  }
+  for (const body of SUN.planets) {
+    if (body.parent !== null) {
+      body.orbit = SUN.planets[body.parent].moonRing;
+    }
+  }
 }
 
 function getIsMoon(index) {
@@ -1021,12 +1066,11 @@ function getMoons(planetIndex) {
 }
 
 function getMoonReach(planetIndex) {
-  // How far a planet's furthest moon gets from it, px before scaling.
-  let reach = 0;
-  for (const moon of getMoons(planetIndex)) {
-    reach = Math.max(reach, SUN.planets[moon].orbit * 1.15);
+  // How far a planet's moons get from it, px before scaling.
+  if (getMoons(planetIndex).length === 0) {
+    return 0;
   }
-  return reach;
+  return SUN.planets[planetIndex].reach;
 }
 
 function setPlanetOrbits() {
@@ -1039,23 +1083,21 @@ function setPlanetOrbits() {
   sunState.planetTrails = [];
   for (let i = 0; i < sunState.planetCount; i++) {
     if (getIsMoon(i)) {
-      // A moon: a near-circle round its planet, inner moons faster.
-      const moonSpeed = SUN.moonSpeed * Math.pow(SUN.moonOrbitStart / SUN.planets[i].orbit, 1.5);
-      let moonDirection = 1;
-      if (random() < 0.3) {
-        moonDirection = -1;
-      }
+      // A moon: evenly spaced round its planet's ring with its brothers and
+      // sisters, all going round together (the ring's turn and direction
+      // come from the planet, set below once it has its own orbit).
+      const parent = SUN.planets[SUN.planets[i].parent];
       sunState.planetOrbits.push({
-        phase: random() * Math.PI * 2,
-        ovalX: getRandomInRange(random, [0.95, 1.1]),
-        ovalY: getRandomInRange(random, [0.85, 1.0]),
-        tilt: random() * Math.PI,
+        phase: SUN.planets[i].moonNumber / parent.moonCount * Math.PI * 2,
+        ovalX: 1,
+        ovalY: 1,
+        tilt: 0,
         precess: 0,
         loopSize: 0,
         loops: 0,
         loopPhase: 0,
-        speed: moonSpeed * getRandomInRange(random, [0.85, 1.15]),
-        direction: moonDirection,
+        speed: SUN.moonSpeed,
+        direction: 1,
       });
       sunState.planetTrails.push([]);
       continue;
@@ -1067,8 +1109,10 @@ function setPlanetOrbits() {
     if (random() < SUN.backwardsChance) {
       direction = -direction;
     }
+    // Planets start spread evenly round me, with a little jitter.
+    const spread = SUN.planets[i].planetNumber / Math.max(1, getTopPlanets().length);
     sunState.planetOrbits.push({
-      phase: random() * Math.PI * 2,
+      phase: (spread + (random() - 0.5) * 0.15) * Math.PI * 2,
       ovalX: getRandomInRange(random, SUN.ovalRange),
       ovalY: getRandomInRange(random, SUN.ovalRange),
       tilt: random() * Math.PI,
@@ -1081,15 +1125,26 @@ function setPlanetOrbits() {
     });
     sunState.planetTrails.push([]);
   }
+  // Each moon ring gets one random turn and direction, shared by its moons.
+  for (const planetIndex of getTopPlanets()) {
+    const turn = random() * Math.PI * 2;
+    let ringDirection = 1;
+    if (random() < 0.3) {
+      ringDirection = -1;
+    }
+    for (const moon of getMoons(planetIndex)) {
+      sunState.planetOrbits[moon].phase += turn;
+      sunState.planetOrbits[moon].direction = ringDirection;
+    }
+  }
 }
 
 function getIsInOrbit(index) {
-  // A planet orbits once it has been found (hunt.js), or always if there's no
-  // hunt. A moon comes with its planet.
-  if (typeof getIsPlanetFound === "function") {
-    return getIsPlanetFound(getParentPlanet(index));
-  }
-  return true;
+  // Nothing orbits any more: each planet is a place in the world now
+  // (town.js and office.js), so the bodies are never drawn or clicked. The
+  // list still feeds the labels and panels. (SUN.showPlanets brings the
+  // orbits back.)
+  return SUN.showPlanets;
 }
 
 function getPlanetOffset(index) {
@@ -1681,7 +1736,7 @@ function setPlanets(centre, seconds) {
   const active = getActivePlanet();
 
   // Where everyone is, and their trails (all trails first, so planets sit on top).
-  // Planets still hidden out in the world (hunt.js) don't orbit yet.
+  // Nothing orbits while SUN.showPlanets is off (each planet is a place now).
   for (let i = 0; i < sunState.planetCount; i++) {
     if (!getIsInOrbit(i)) {
       sunState.planetSpots.push(null);
@@ -1770,10 +1825,29 @@ function getPlanetAt(clientX, clientY) {
   return null;
 }
 
+function getTownItemAt(clientX, clientY) {
+  // The .planet-list item of a Work town building under this point (town.js),
+  // or null.
+  if (typeof getTownBuildingAt !== "function") {
+    return null;
+  }
+  return getTownBuildingAt(clientX, clientY);
+}
+
+function setBuildingEntered(item) {
+  // Clicking or tapping a place's building goes inside (town.js and
+  // office.js), or opens its panel if they aren't there.
+  if (typeof setPlaceEntered === "function") {
+    setPlaceEntered(item);
+  } else {
+    setPanelShown(item);
+  }
+}
+
 function getIsOverPlanet(clientX, clientY) {
   // Used by pointer-effects.js so clicking a planet (orbiting or still hidden
-  // out in the world) doesn't move the orb.
-  if (getPlanetAt(clientX, clientY) !== null) {
+  // out in the world) or a town building doesn't move the orb.
+  if (getPlanetAt(clientX, clientY) !== null || getTownItemAt(clientX, clientY) !== null) {
     return true;
   }
   if (typeof getWildPlanetAt === "function") {
@@ -1829,11 +1903,14 @@ function getIsOnInterface(target) {
   return target.closest("a, button, input, .planet-panel, .planet-label, .contents, .joystick") !== null;
 }
 
-function setLabelShown(index) {
+function setLabelShown(index, anchor) {
+  // anchor (optional): a function giving the screen point to sit the label
+  // above (a town building), instead of the planet.
   const item = getPlanetItem(index);
   if (!item || sunState.panelPlanet !== null) {
     return;
   }
+  sunState.labelAnchor = anchor || null;
   if (sunState.labelPlanet !== index || planetLabel.dataset.wild === "true") {
     planetLabel.dataset.wild = "false";
     planetLabel.querySelector(".planet-label-tag").textContent = item.tag;
@@ -1851,6 +1928,7 @@ function setLabelShown(index) {
 function setLabelHidden() {
   planetLabel.hidden = true;
   sunState.labelPlanet = null;
+  sunState.labelAnchor = null;
 }
 
 function setLabelPosition() {
@@ -1858,7 +1936,12 @@ function setLabelPosition() {
   if (sunState.labelPlanet === null) {
     return;
   }
-  const point = getPlanetScreenPoint(sunState.labelPlanet);
+  let point = null;
+  if (sunState.labelAnchor) {
+    point = sunState.labelAnchor();
+  } else {
+    point = getPlanetScreenPoint(sunState.labelPlanet);
+  }
   if (!point) {
     return;
   }
@@ -1937,10 +2020,28 @@ function setHoverFromPointer(event) {
   if (typeof setWildHover === "function") {
     setWildHover(wild);
   }
-  document.body.classList.toggle("is-over-planet", index !== null || wild !== null);
+  let building = null;
+  if (index === null && wild === null && !getIsOnInterface(event.target)) {
+    building = getTownItemAt(event.clientX, event.clientY);
+  }
+  if (typeof setTownHovered === "function") {
+    setTownHovered(building);
+  }
+  document.body.classList.toggle("is-over-planet", index !== null || wild !== null || building !== null);
 
   if (wild !== null) {
     setLabelHidden();
+  } else if (building !== null) {
+    if (sunState.labelPlanet !== building || !sunState.labelAnchor) {
+      sunState.labelPlanet = null;
+    }
+    setLabelShown(building, function () {
+      return getTownBuildingPoint(building);
+    });
+    // The building has its own second line ("step inside...").
+    if (typeof getTownLabel === "function" && getTownLabel(building)) {
+      planetLabel.querySelector(".planet-label-title").textContent = getTownLabel(building);
+    }
   } else if (index !== null) {
     setLabelShown(index);
   } else if (sunState.focused !== null) {
@@ -1964,6 +2065,8 @@ function setPlanetPointerDown(event) {
     const index = getPlanetAt(event.clientX, event.clientY);
     if (index !== null) {
       setPanelShown(index);
+    } else if (getTownItemAt(event.clientX, event.clientY) !== null) {
+      setBuildingEntered(getTownItemAt(event.clientX, event.clientY));
     }
   }
 }
@@ -1983,6 +2086,13 @@ function setPlanetClick(event) {
   if (index !== null) {
     if (sunState.lastPointerType !== "touch") {
       setPanelShown(index);
+    }
+    return;
+  }
+  const building = getTownItemAt(event.clientX, event.clientY);
+  if (building !== null) {
+    if (sunState.lastPointerType !== "touch") {
+      setBuildingEntered(building);
     }
     return;
   }
@@ -2022,6 +2132,13 @@ function setKeyboardHandlers() {
       continue;
     }
     title.addEventListener("focus", function () {
+      if (sunState.quietFocus) {
+        // Focus coming back after a panel closed: no label (and moving the
+        // pointer away mustn't bring it back either).
+        sunState.quietFocus = false;
+        sunState.focused = null;
+        return;
+      }
       setKeyboardFocus(i);
     });
     title.addEventListener("blur", function () {
@@ -2039,13 +2156,18 @@ function setKeyboardHandlers() {
   planetPanel.querySelector(".planet-panel-close").addEventListener("click", function () {
     const index = sunState.panelPlanet;
     setPanelHidden();
-    // Return keyboard focus to that planet's entry in the list.
+    // Return keyboard focus to that planet's entry in the list, quietly: the
+    // close button closes the planet's label as well as its panel.
     if (index !== null && planetItems[index]) {
       const title = planetItems[index].querySelector(".planet-title");
       if (title) {
+        sunState.quietFocus = true;
         title.focus({ preventScroll: true });
+        sunState.quietFocus = false;
       }
     }
+    sunState.hovered = null;
+    setLabelHidden();
   });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
@@ -2092,7 +2214,7 @@ function setSunFrame(seconds) {
 
 function setSunAnimation(now) {
   sunState.frame = requestAnimationFrame(setSunAnimation);
-  if (now - sunState.lastFrame < 1000 / SUN.fps) {
+  if (now - sunState.lastFrame < 1000 / SUN.fps || getIsInsideBuilding()) {
     return;
   }
   sunState.lastFrame = now;
